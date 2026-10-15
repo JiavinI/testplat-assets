@@ -1,0 +1,17 @@
+# 搜索商品。query 参数写在 request.body（Engine 0.5 发送时读 body，不读 params）。
+# 必填：在 inputs 声明类型；占位符只用 ${name}，禁止 ${name!} / ${name|默认} / ${a.b.c}。
+id: api.gsb.order.search_product
+name: 搜索商品
+host: gsb
+method: GET
+url: /api/b2/orders/search/product
+auth: gsb
+request:
+  type: query
+  inputs:
+    product_keyword: str
+  body:
+    keywords: "${product_keyword}"
+success:
+  path: $.errorCode
+  value: "0"

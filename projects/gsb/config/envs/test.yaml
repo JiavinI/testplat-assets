@@ -1,0 +1,7 @@
+# test 环境 hosts。协议以旧清单记录为准（http）；登录与业务 host 分开。
+# 文件名即环境名；勿以 _ 开头（清单约定忽略共享文件）。
+api_hosts:
+  gsb: http://java.qa.gogoo.cn:8306
+  unified_login: http://tt.ximgs.net
+timeout:
+  default: 30

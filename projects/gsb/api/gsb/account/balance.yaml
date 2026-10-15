@@ -1,0 +1,16 @@
+# 查询账户余额。无入参；成功判定沿用业务 errorCode 字符串 "0"。
+# 必填：本接口无 inputs；旧 ${x!} 写法 Engine 0.5 不支持，勿使用。
+id: api.gsb.account.balance
+name: 查询账户余额
+host: gsb
+method: POST
+url: /api/account/balance
+# 缺省走 config/auth 的 default_identity；显式写出避免依赖隐式默认。
+auth: gsb
+request:
+  type: json
+  inputs: {}
+  body: {}
+success:
+  path: $.errorCode
+  value: "0"

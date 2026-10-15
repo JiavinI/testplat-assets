@@ -1,0 +1,8 @@
+# 仓库清单：项目键只允许 [a-z0-9_-]{1,64}；路径必须是仓库内相对路径。
+schema_version: "1"
+projects:
+  gsb:
+    name: GSB 商家端
+    assets: projects/gsb
+    config: projects/gsb/config
+    default_env: test

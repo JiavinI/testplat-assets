@@ -1,0 +1,18 @@
+# 顺序冒烟：余额 → 搜商品。本批不做跨步骤响应引用、数据驱动、suites。
+schema_version: "0.2"
+id: case.gsb.smoke
+name: GSB 冒烟（余额与搜商品）
+params:
+  # case 级示例关键字；运行时可被平台覆盖。
+  product_keyword: "示例商品"
+steps:
+  - step_id: balance
+    type: api
+    api_id: api.gsb.account.balance
+    name: 查询账户余额
+  - step_id: search_product
+    type: api
+    api_id: api.gsb.order.search_product
+    name: 搜索商品
+    params:
+      product_keyword: "${params.product_keyword}"
