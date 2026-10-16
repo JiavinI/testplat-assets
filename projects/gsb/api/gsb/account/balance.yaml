@@ -5,7 +5,7 @@ name: 查询账户余额
 host: gsb
 method: POST
 url: /api/account/balance
-# 缺省走 config/auth 的 default_identity；显式写出避免依赖隐式默认。
+# 4.1a 仍用账号名 gsb。登录流程是 auth/_profiles.yaml 的 gsb_login，凭据由 Web 维护。
 auth: gsb
 request:
   type: json
