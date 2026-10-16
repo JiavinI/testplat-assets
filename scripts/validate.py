@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """用 Engine 0.5 加载本仓库全部资产，并检查 case 对 api 的引用。
 
-不发 HTTP 请求。若 PYTHONPATH 含 testplat-control，则用 auth_loader 校验
-鉴权 YAML schema（注入占位秘密，仅用于结构检查，值不入库）。
+不发 HTTP 请求，也不写入凭据。登录流程在 ``config/auth/_profiles.yaml``：
+``${secret:字段名}`` 不得是 ``TESTPLAT_*``。``config/auth/<env>.yaml`` 若只剩
+空 ``identities``，视为「运行时凭据由 Web 维护」的兼容夹层。
+
+若 PYTHONPATH 含 testplat-control，则用 ``load_profile_catalog`` /
+``build_auth_from_document`` 校验流程 schema，并用历史 ``load_auth`` 确认夹层
+仍能被加载。流程构造只用等长占位符满足最小长度，不读取、不写入真实凭据；
+字段名路径不得要求 ``TESTPLAT_GSB_*``。
 
 用法::
 
@@ -23,8 +29,15 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_NAME = "testplat.yaml"
 PROJECT_KEY_RE = re.compile(r"^[a-z0-9_-]{1,64}$")
-# auth_loader 结构校验时不注入任何秘密值（缺失 → UnavailableAuth，schema 仍通过）。
+# 环境夹层不提供秘密。流程 schema 只用等长占位符，避免缺失字段提前变成 UnavailableAuth
+# 而跳过 inject / extract 校验；该字符串不是账号密码，也不写入仓库数据文件。
 _EMPTY_SECRETS: dict[str, str] = {}
+_SCHEMA_PLACEHOLDER = "x" * 8
+_PROFILE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_SECRET_FIELD_RE = re.compile(r"\$\{secret:([A-Za-z0-9_]+)\}")
+_TESTPLAT_SECRET_RE = re.compile(r"\$\{secret:(TESTPLAT_[A-Za-z0-9_]+)\}")
+# 历史 load_auth 允许的根键。兼容夹层只保留空 identities，避免夹带默认身份。
+_AUTH_ROOT_KEYS = frozenset({"identities", "default_identity", "connections", "login_plugins"})
 
 
 def _fail(msg: str) -> None:
@@ -106,6 +119,240 @@ def _looks_like_literal_secret(auth_text: str) -> bool:
     )
 
 
+def _secret_field_names(node: object) -> list[str]:
+    """按出现顺序收集 ${secret:字段名}，同一字段只留一次。"""
+    found: list[str] = []
+    if isinstance(node, str):
+        found.extend(_SECRET_FIELD_RE.findall(node))
+    elif isinstance(node, dict):
+        for value in node.values():
+            found.extend(_secret_field_names(value))
+    elif isinstance(node, list):
+        for value in node:
+            found.extend(_secret_field_names(value))
+    return list(dict.fromkeys(found))
+
+
+def _source_literals(node: object) -> list[object]:
+    """收集 body.fields.source。字面量必须原样保留，不能改成秘密占位符。"""
+    found: list[object] = []
+    if isinstance(node, dict):
+        fields = node.get("fields")
+        if isinstance(fields, dict) and "source" in fields:
+            found.append(fields["source"])
+        for value in node.values():
+            found.extend(_source_literals(value))
+    elif isinstance(node, list):
+        for value in node:
+            found.extend(_source_literals(value))
+    return found
+
+
+def _check_gsb_profile(body: object, fields: list[str]) -> str | None:
+    """4.1a 的 gsb_login 约束：逻辑 host、字段名、source 字面量。"""
+    if not isinstance(body, dict):
+        return "gsb_login 必须是对象"
+    login = body.get("login")
+    if not isinstance(login, dict):
+        return "gsb_login 缺少 login"
+    if login.get("host") != "unified_login":
+        return "gsb_login.host 必须是逻辑名 unified_login"
+    if fields != ["username", "password"]:
+        return f"gsb_login 凭据字段必须是 username、password，实际 {fields}"
+    sources = _source_literals(login)
+    if sources != ["go2"]:
+        return "gsb_login 的 source 必须保持字面量 go2"
+    return None
+
+
+def _schema_check_profiles(config_root: Path, identities: dict) -> list[str]:
+    """用平台账号构造入口校验流程。占位符只满足长度，构造结果必须是 LoginAuth。"""
+    errors: list[str] = []
+    try:
+        from testplat_control.services.auth_loader import build_auth_from_document
+        from testplat_control.services.login_profiles import load_profile_catalog
+    except ImportError:
+        _ok("profiles YAML 结构 ok（未装 Control，跳过流程 schema）")
+        return errors
+    try:
+        catalog = load_profile_catalog(config_root)
+    except Exception as exc:  # noqa: BLE001 — 汇总后继续
+        errors.append(f"auth/_profiles.yaml: {type(exc).__name__}: {exc}")
+        _fail(f"profiles catalog: {exc}")
+        return errors
+    catalog_fields = {item.name: list(item.credential_fields) for item in catalog.profiles}
+    if catalog_fields != {name: _secret_field_names(body) for name, body in identities.items()}:
+        errors.append("load_profile_catalog 提取的凭据字段与文件不一致")
+        _fail("profiles 字段提取不一致")
+        return errors
+    for name, body in identities.items():
+        fields = catalog_fields[name]
+        secrets = {field: _SCHEMA_PLACEHOLDER for field in fields}
+        try:
+            result = build_auth_from_document(
+                {"identities": {name: body}},
+                env="profiles",
+                secrets=secrets,
+            )
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"流程 {name} schema: {type(exc).__name__}: {exc}")
+            _fail(f"profile {name}: {exc}")
+            continue
+        material = result.table.identities.get(name)
+        reason = getattr(material, "public_reason", "")
+        kind = type(material).__name__
+        # 字段名路径应构造出登录材料。白名单失败会把字段名说成 TESTPLAT_ 环境变量。
+        if kind != "LoginAuth" or "TESTPLAT_" in reason:
+            errors.append(f"流程 {name} 期望 LoginAuth，实际 {kind}: {reason}")
+            _fail(f"profile {name}: {kind} {reason}")
+            continue
+        _ok(f"profile {name} schema ok（LoginAuth，字段 {fields}）")
+    return errors
+
+
+def _validate_profiles(key: str, config_root: Path) -> list[str]:
+    """登录流程文件：无真实凭据，秘密引用必须是字段名。"""
+    errors: list[str] = []
+    path = config_root / "auth" / "_profiles.yaml"
+    if not path.is_file():
+        if key == "gsb":
+            errors.append("gsb 缺少 config/auth/_profiles.yaml")
+            _fail(f"{key} profiles: 缺少 _profiles.yaml")
+        else:
+            _ok(f"{key} profiles: 无 _profiles.yaml（允许）")
+        return errors
+    raw_text = path.read_text(encoding="utf-8")
+    if _looks_like_literal_secret(raw_text):
+        errors.append("auth/_profiles.yaml 疑似含秘密字面量")
+        _fail(f"{key} profiles: 疑似秘密字面量")
+        return errors
+    banned = sorted(set(_TESTPLAT_SECRET_RE.findall(raw_text)))
+    if banned:
+        errors.append(f"auth/_profiles.yaml 不得引用环境变量 {', '.join(banned)}")
+        _fail(f"{key} profiles: 仍引用 {', '.join(banned)}")
+        return errors
+    try:
+        data = yaml.safe_load(raw_text)
+    except yaml.YAMLError as exc:
+        errors.append(f"auth/_profiles.yaml YAML 无效: {exc}")
+        _fail(f"{key} profiles: YAML 无效")
+        return errors
+    if not isinstance(data, dict) or not isinstance(data.get("identities"), dict):
+        errors.append("auth/_profiles.yaml 缺少 identities 对象")
+        _fail(f"{key} profiles: 缺少 identities")
+        return errors
+    identities: dict = data["identities"]
+    if not identities:
+        errors.append("auth/_profiles.yaml 没有登录流程")
+        _fail(f"{key} profiles: 空 identities")
+        return errors
+    for name, body in identities.items():
+        if not isinstance(name, str) or not _PROFILE_NAME_RE.fullmatch(name) or name == "none":
+            errors.append(f"登录流程名非法: {name!r}")
+            _fail(f"{key} profile {name}: 流程名非法")
+            continue
+        fields = _secret_field_names(body)
+        if any(field.startswith("TESTPLAT_") for field in fields):
+            errors.append(f"流程 {name} 的秘密必须是凭据字段名")
+            _fail(f"{key} profile {name}: 字段名仍像环境变量")
+            continue
+        if key == "gsb" and name == "gsb_login":
+            problem = _check_gsb_profile(body, fields)
+            if problem:
+                errors.append(problem)
+                _fail(f"{key} profile {name}: {problem}")
+                continue
+        _ok(f"{key} profile {name} fields={fields}")
+    if key == "gsb" and "gsb_login" not in identities:
+        errors.append("gsb 缺少登录流程 gsb_login")
+        _fail(f"{key} profiles: 缺少 gsb_login")
+    if not errors:
+        errors.extend(_schema_check_profiles(config_root, identities))
+    return errors
+
+
+def _validate_env_auth(key: str, config_root: Path, env: str, auth_path: Path) -> list[str]:
+    """环境 auth 文件。空 identities 是 Web 凭据兼容夹层，不再要求 TESTPLAT_*。"""
+    errors: list[str] = []
+    raw_text = auth_path.read_text(encoding="utf-8")
+    if _looks_like_literal_secret(raw_text):
+        errors.append(f"auth/{env}.yaml 疑似含秘密字面量")
+        _fail(f"{key} auth {env}: 疑似秘密字面量")
+        return errors
+    banned = sorted(set(_TESTPLAT_SECRET_RE.findall(raw_text)))
+    if banned:
+        errors.append(
+            f"auth/{env}.yaml 仍引用 {', '.join(banned)}；平台主路径不再使用这些环境变量"
+        )
+        _fail(f"{key} auth {env}: 仍引用 {', '.join(banned)}")
+        return errors
+    try:
+        data = yaml.safe_load(raw_text)
+    except yaml.YAMLError as exc:
+        errors.append(f"auth/{env}.yaml YAML 无效: {exc}")
+        _fail(f"{key} auth {env}: YAML 无效")
+        return errors
+    # 只有空身份表才是本批夹层。注释不足以让历史 load_auth 通过（根节点会变成 None）。
+    if data == {"identities": {}}:
+        return _check_auth_shim(key, config_root, env)
+    if not isinstance(data, dict) or not isinstance(data.get("identities"), dict):
+        errors.append(
+            f"auth/{env}.yaml 须为 identities 对象；兼容夹层应是空 identities，不能只写注释"
+        )
+        _fail(f"{key} auth {env}: 不是合法夹层或历史身份表")
+        return errors
+    unknown = sorted(set(data) - _AUTH_ROOT_KEYS)
+    if unknown:
+        errors.append(f"auth/{env}.yaml 含未知字段: {', '.join(unknown)}")
+        _fail(f"{key} auth {env}: 未知字段 {unknown}")
+        return errors
+    try:
+        from testplat_control.services.auth_loader import load_auth
+    except ImportError:
+        _ok(f"{key} auth {env} YAML ok（未装 Control，跳过 auth_loader）")
+        return errors
+    try:
+        result = load_auth(config_root, env, environ=_EMPTY_SECRETS)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"auth {env}: {type(exc).__name__}: {exc}")
+        _fail(f"{key} auth {env}: {exc}")
+        return errors
+    if result is None:
+        errors.append(f"auth/{env}.yaml 存在但 load_auth 返回 None")
+        _fail(f"{key} auth {env}: load_auth None")
+        return errors
+    names = sorted(result.table.identities)
+    _ok(f"{key} auth {env} identities={names} default={result.table.default_identity}")
+    return errors
+
+
+def _check_auth_shim(key: str, config_root: Path, env: str) -> list[str]:
+    """空身份表必须能被历史 load_auth 接受，且不带出任何身份。"""
+    errors: list[str] = []
+    try:
+        from testplat_control.services.auth_loader import load_auth
+    except ImportError:
+        _ok(f"{key} auth {env}: 兼容夹层（未装 Control，跳过 load_auth）")
+        return errors
+    try:
+        result = load_auth(config_root, env, environ=_EMPTY_SECRETS)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"auth {env} 兼容夹层: {type(exc).__name__}: {exc}")
+        _fail(f"{key} auth {env}: {exc}")
+        return errors
+    if result is None:
+        errors.append(f"auth/{env}.yaml 兼容夹层被 load_auth 当成缺失文件")
+        _fail(f"{key} auth {env}: load_auth None")
+        return errors
+    names = sorted(result.table.identities)
+    if names or result.table.default_identity is not None:
+        errors.append(f"auth/{env}.yaml 兼容夹层不应声明身份，实际 {names}")
+        _fail(f"{key} auth {env}: 夹层含身份 {names}")
+        return errors
+    _ok(f"{key} auth {env}: 兼容夹层（空身份表，运行时凭据由 Web 维护）")
+    return errors
+
+
 def validate_project(key: str, meta: dict) -> list[str]:
     from testplat_engine.adapters.filesystem.registry import Registry
 
@@ -165,6 +412,8 @@ def validate_project(key: str, meta: dict) -> list[str]:
             errors.append(f"加载 case {case_id}: {type(exc).__name__}: {exc}")
             _fail(f"{key} case {case_id}: {exc}")
 
+    errors.extend(_validate_profiles(key, config_root))
+
     envs = _list_envs(config_root)
     default_env = meta.get("default_env")
     if default_env is not None and default_env not in envs:
@@ -189,36 +438,9 @@ def validate_project(key: str, meta: dict) -> list[str]:
 
         auth_path = config_root / "auth" / f"{env}.yaml"
         if not auth_path.is_file():
-            _ok(f"{key} auth {env}: 文件不存在（允许）")
+            _ok(f"{key} auth {env}: 文件不存在（允许；凭据由 Web 维护）")
             continue
-        raw_text = auth_path.read_text(encoding="utf-8")
-        if _looks_like_literal_secret(raw_text):
-            errors.append(f"auth/{env}.yaml 疑似含秘密字面量")
-            _fail(f"{key} auth {env}: 疑似秘密字面量")
-            continue
-        try:
-            from testplat_control.services.auth_loader import load_auth
-
-            result = load_auth(config_root, env, environ=_EMPTY_SECRETS)
-            if result is None:
-                errors.append(f"auth/{env}.yaml 存在但 load_auth 返回 None")
-                _fail(f"{key} auth {env}: load_auth None")
-            else:
-                names = sorted(result.table.identities)
-                _ok(
-                    f"{key} auth {env} identities={names} "
-                    f"default={result.table.default_identity}"
-                )
-        except ImportError:
-            data = yaml.safe_load(raw_text)
-            if not isinstance(data, dict) or "identities" not in data:
-                errors.append(f"auth/{env}.yaml 缺少 identities")
-                _fail(f"{key} auth {env}: 缺少 identities")
-            else:
-                _ok(f"{key} auth {env} YAML ok（未装 Control，跳过 auth_loader）")
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"auth {env}: {type(exc).__name__}: {exc}")
-            _fail(f"{key} auth {env}: {exc}")
+        errors.extend(_validate_env_auth(key, config_root, env, auth_path))
 
     return errors
 

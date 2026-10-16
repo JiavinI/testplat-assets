@@ -1,32 +1,7 @@
-# gsb 登录：generic_flow 单步；账号密码只写 ${secret:}，禁止字面量。
-# 登录 host 为 unified_login，与业务 host gsb 分离。
-# source 本批写字面量 go2（项目标识）；多项目账号需另配身份时再拆。
-# 身份名须匹配 ^[a-z][a-z0-9_]*$；不得使用保留名 none。
-identities:
-  gsb:
-    login:
-      host: unified_login
-      steps:
-        - name: login
-          method: GET
-          path: /site/login
-          body:
-            type: query
-            fields:
-              username: "${secret:TESTPLAT_GSB_USERNAME}"
-              password: "${secret:TESTPLAT_GSB_PASSWORD}"
-              source: go2
-          extract:
-            - source: body_json
-              path: $.data.hash
-              as: token
-            - source: body_json
-              path: $.data.userId
-              as: user_id
-      validity:
-        ttl_seconds: 14400
-      inject:
-        headers:
-          X-TOKEN: "${login:token}"
-          X-USER-ID: "${login:user_id}"
-default_identity: gsb
+# 兼容夹层：运行时凭据由 Web 维护，本文件不再声明登录身份。
+# 登录流程见同目录 _profiles.yaml 的 gsb_login。
+# Web 账号名仍为 gsb（对应 API 的 auth: gsb），凭据字段为 username、password。
+# 不再使用 TESTPLAT_GSB_USERNAME、TESTPLAT_GSB_PASSWORD，也不回退服务器环境变量。
+# 空 identities 让历史 load_auth 读到不含秘密的空表。
+# 项目已有 Web 环境时，平台主路径不读本文件。
+identities: {}
