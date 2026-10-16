@@ -5,8 +5,8 @@ name: 查询账户余额
 host: gsb
 method: POST
 url: /api/account/balance
-# 4.1a 仍用账号名 gsb。登录流程是 auth/_profiles.yaml 的 gsb_login，凭据由 Web 维护。
-auth: gsb
+# 采购商主账号；登录流程为 gsb_login，凭据由所选环境的 Web 测试账号提供。
+auth: gsb.b2.primary
 request:
   type: json
   inputs: {}
