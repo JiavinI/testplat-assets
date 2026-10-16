@@ -35,7 +35,7 @@ testplat-assets/
 - `request.type`：`json`（默认）/ `form` / `query` / `raw`。**query 参数写在 `request.body`**，不要写 `params`。
 - 入参：在 `request.inputs` 用「字段名 → 类型名」（如 `product_keyword: str`）声明；body 里用 `${字段名}`。
 - 成功判定：`success.path` + `success.value`，或 `success.status_code`。
-- `auth`：账号名，或 `none`（匿名）。4.1a 不增加步骤级 `account`；GSB 接口继续写 `auth: gsb`。
+- `auth`：账号名，或 `none`（匿名）。4.1a 不增加步骤级 `account`；GSB 接口写 `auth: gsb.b2.primary`。
 - 资产内**禁止** `${secret:}` / `${login:}` / `${login_host}`（这些只属于登录流程）。
 
 ### Case
@@ -89,7 +89,7 @@ testplat-assets/
 
 ## 新增资产步骤
 
-1. 在对应 `projects/<project>/api/...` 新增 YAML，补齐 `id`（与路径一致），只用上表「已支持」字段。需要登录的接口写账号名，例如 `auth: gsb`。
+1. 在对应 `projects/<project>/api/...` 新增 YAML，补齐 `id`（与路径一致），只用上表「已支持」字段。需要登录的接口写账号名，例如 `auth: gsb.b2.primary`。
 2. 若需登录：在 `config/auth/_profiles.yaml` 增加或复用流程。凭据字段名写入 `${secret:字段名}`，到 Web 对应该环境的账号里填写值，不要写进 Git，也不要加服务器环境变量。
 3. 若需新的逻辑 host：在 Web 环境的服务地址里填写。`config/envs/<env>.yaml` 只在要更新示例模板时才改。
 4. 写 case：`scenarios/.../*.case.yaml`，`api_id` 指向已有接口；参数给示例值。
@@ -102,7 +102,7 @@ GSB 冒烟在 Web 的填法：
 
 | 项 | 值 |
 |---|---|
-| 账号名 | `gsb`（与 API `auth: gsb` 相同；不是登录用户名） |
+| 账号名 | `gsb.b2.primary`（gsb / b2 分组下的 primary 引用；不是登录用户名） |
 | 登录流程 | `gsb_login` |
 | 凭据字段 | `username`、`password` |
 
@@ -120,8 +120,8 @@ GSB 冒烟在 Web 的填法：
 | 类型 | 内容 |
 |---|---|
 | 登录流程 | `gsb_login`：`unified_login` + `GET /site/login`（query：`username` / `password` / 字面量 `source: go2`）；token=`$.data.hash`→`X-TOKEN`，user_id=`$.data.userId`→`X-USER-ID`；`ttl_seconds=14400` |
-| 账号 | Web 账号名 `gsb` 引用 `gsb_login`；凭据字段 `username`、`password` |
-| API | `api.gsb.account.balance`、`api.gsb.order.search_product`（均 `auth: gsb`） |
+| 账号 | Web 账号完整引用 `gsb.b2.primary` 引用 `gsb_login`；凭据字段 `username`、`password` |
+| API | `api.gsb.account.balance`、`api.gsb.order.search_product`（均 `auth: gsb.b2.primary`） |
 | Case | `case.gsb.smoke`（balance → search_product） |
 | 环境模板 | `config/envs/test.yaml`：`gsb=http://java.qa.gogoo.cn:8306`，`unified_login=http://tt.ximgs.net`。运行时以 Web 为准 |
 
