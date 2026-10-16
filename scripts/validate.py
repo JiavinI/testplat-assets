@@ -2,12 +2,12 @@
 """用 Engine 0.5 加载本仓库全部资产，并检查 case 对 api 的引用。
 
 不发 HTTP 请求，也不写入凭据。登录流程在 ``config/auth/_profiles.yaml``：
-``${secret:字段名}`` 不得是 ``TESTPLAT_*``。``config/auth/<env>.yaml`` 若只剩
-空 ``identities``，视为「运行时凭据由 Web 维护」的兼容夹层。
+``${secret:字段名}`` 不得是 ``TESTPLAT_*``。运行时凭据由 Web 维护，
+无需 ``config/auth/<env>.yaml``；若旧资产仍有该文件，则继续校验。
 
 若 PYTHONPATH 含 testplat-control，则用 ``load_profile_catalog`` /
-``build_auth_from_document`` 校验流程 schema，并用历史 ``load_auth`` 确认夹层
-仍能被加载。流程构造只用等长占位符满足最小长度，不读取、不写入真实凭据；
+``build_auth_from_document`` 校验流程 schema，并用历史 ``load_auth`` 校验可选的
+旧环境身份文件。流程构造只用等长占位符满足最小长度，不读取、不写入真实凭据；
 字段名路径不得要求 ``TESTPLAT_GSB_*``。
 
 用法::

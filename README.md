@@ -64,11 +64,11 @@ testplat-assets/
 - 注入用 `${login:名字}`；路径里可用 `${login_host}`。
 - 本文件不写环境地址，不写账号密码，也不写 `TESTPLAT_*` 环境变量名。
 
-### 环境 auth 文件（`config/auth/<env>.yaml`）
+### 测试账号与环境
 
-- 平台主路径不读这些文件。已有 Web 环境时，Control 用 `_profiles.yaml` 和该环境的账号凭据构造身份表，身份名是账号名。
-- `test.yaml` 只保留兼容夹层：说明运行时凭据由 Web 维护，并给出空的 `identities: {}`，让历史 `load_auth` 读到一份不含秘密的空表。
-- 不要在这里恢复 `TESTPLAT_GSB_USERNAME` / `TESTPLAT_GSB_PASSWORD`。没有 Web 环境时，这份空表不会再回退到服务器环境变量。
+- GSB 不再提供 `config/auth/<env>.yaml`；原先空的 `auth/test.yaml` 已删除。
+- Control 用 `_profiles.yaml` 和 Web 中所选环境的账号凭据构造身份表，完整账号引用如 `gsb.b2.primary`。
+- 使用前须在 Web 配置项目环境和测试账号。不要在 Git 中恢复账号密码或 `TESTPLAT_GSB_*` 环境变量引用。
 
 ## 当前不支持的写法
 
