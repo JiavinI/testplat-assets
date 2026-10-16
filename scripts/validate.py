@@ -44,6 +44,24 @@ def _fail(msg: str) -> None:
     print(f"FAIL  {msg}")
 
 
+def _yaml_mark_location(exc: BaseException) -> str:
+    """取 PyYAML 行列。只读整数坐标，不读 mark 的 buffer 或片段。"""
+    mark = getattr(exc, "problem_mark", None)
+    line = getattr(mark, "line", None)
+    column = getattr(mark, "column", None)
+    if isinstance(line, int) and isinstance(column, int) and line >= 0 and column >= 0:
+        return f" 位置 {line + 1}:{column + 1}"
+    return ""
+
+
+def _safe_error(label: str, exc: BaseException) -> str:
+    """校验失败只留固定说明、异常类型和可选行列。
+
+    禁止拼接 ``str(exc)``。PyYAML 异常原文含文件片段，可能带出凭据。
+    """
+    return f"{label}: {type(exc).__name__}{_yaml_mark_location(exc)}"
+
+
 def _ok(msg: str) -> None:
     print(f"OK    {msg}")
 
@@ -176,9 +194,10 @@ def _schema_check_profiles(config_root: Path, identities: dict) -> list[str]:
         return errors
     try:
         catalog = load_profile_catalog(config_root)
-    except Exception as exc:  # noqa: BLE001 — 汇总后继续
-        errors.append(f"auth/_profiles.yaml: {type(exc).__name__}: {exc}")
-        _fail(f"profiles catalog: {exc}")
+    except Exception as exc:  # noqa: BLE001 — 汇总后继续，消息不得含异常原文
+        message = _safe_error("auth/_profiles.yaml 无法加载", exc)
+        errors.append(message)
+        _fail(f"profiles catalog: {message}")
         return errors
     catalog_fields = {item.name: list(item.credential_fields) for item in catalog.profiles}
     if catalog_fields != {name: _secret_field_names(body) for name, body in identities.items()}:
@@ -194,9 +213,10 @@ def _schema_check_profiles(config_root: Path, identities: dict) -> list[str]:
                 env="profiles",
                 secrets=secrets,
             )
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"流程 {name} schema: {type(exc).__name__}: {exc}")
-            _fail(f"profile {name}: {exc}")
+        except Exception as exc:  # noqa: BLE001 — 消息不得含异常原文
+            message = _safe_error(f"流程 {name} 无法构造", exc)
+            errors.append(message)
+            _fail(f"profile {name}: {message}")
             continue
         material = result.table.identities.get(name)
         reason = getattr(material, "public_reason", "")
@@ -234,8 +254,9 @@ def _validate_profiles(key: str, config_root: Path) -> list[str]:
     try:
         data = yaml.safe_load(raw_text)
     except yaml.YAMLError as exc:
-        errors.append(f"auth/_profiles.yaml YAML 无效: {exc}")
-        _fail(f"{key} profiles: YAML 无效")
+        message = _safe_error("auth/_profiles.yaml YAML 无效", exc)
+        errors.append(message)
+        _fail(f"{key} profiles: {message}")
         return errors
     if not isinstance(data, dict) or not isinstance(data.get("identities"), dict):
         errors.append("auth/_profiles.yaml 缺少 identities 对象")
@@ -289,8 +310,9 @@ def _validate_env_auth(key: str, config_root: Path, env: str, auth_path: Path) -
     try:
         data = yaml.safe_load(raw_text)
     except yaml.YAMLError as exc:
-        errors.append(f"auth/{env}.yaml YAML 无效: {exc}")
-        _fail(f"{key} auth {env}: YAML 无效")
+        message = _safe_error(f"auth/{env}.yaml YAML 无效", exc)
+        errors.append(message)
+        _fail(f"{key} auth {env}: {message}")
         return errors
     # 只有空身份表才是本批夹层。注释不足以让历史 load_auth 通过（根节点会变成 None）。
     if data == {"identities": {}}:
@@ -313,9 +335,10 @@ def _validate_env_auth(key: str, config_root: Path, env: str, auth_path: Path) -
         return errors
     try:
         result = load_auth(config_root, env, environ=_EMPTY_SECRETS)
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"auth {env}: {type(exc).__name__}: {exc}")
-        _fail(f"{key} auth {env}: {exc}")
+    except Exception as exc:  # noqa: BLE001 — 消息不得含异常原文
+        message = _safe_error(f"auth {env} 无法加载", exc)
+        errors.append(message)
+        _fail(f"{key} auth {env}: {message}")
         return errors
     if result is None:
         errors.append(f"auth/{env}.yaml 存在但 load_auth 返回 None")
@@ -336,9 +359,10 @@ def _check_auth_shim(key: str, config_root: Path, env: str) -> list[str]:
         return errors
     try:
         result = load_auth(config_root, env, environ=_EMPTY_SECRETS)
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"auth {env} 兼容夹层: {type(exc).__name__}: {exc}")
-        _fail(f"{key} auth {env}: {exc}")
+    except Exception as exc:  # noqa: BLE001 — 消息不得含异常原文
+        message = _safe_error(f"auth {env} 兼容夹层无法加载", exc)
+        errors.append(message)
+        _fail(f"{key} auth {env}: {message}")
         return errors
     if result is None:
         errors.append(f"auth/{env}.yaml 兼容夹层被 load_auth 当成缺失文件")
