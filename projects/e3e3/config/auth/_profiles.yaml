@@ -1,0 +1,30 @@
+# 与环境解耦的登录流程。流程名不是账号名，也不等于 Web 账号名。
+# 本文件不含环境地址与真实凭据。${secret:字段名} 只在运行时由该账号的 Web 凭据字典解析。
+# host 只写逻辑名，实际 URL 来自所选环境。source 保持字面量，不从项目键 gsb 推导。
+identities:
+  gsb_login:
+    login:
+      host: unified_login
+      steps:
+        - name: login
+          method: GET
+          path: /site/login
+          body:
+            type: query
+            fields:
+              username: "${secret:username}"
+              password: "${secret:password}"
+              source: e3e3
+          extract:
+            - source: body_json
+              path: $.data.hash
+              as: token
+            - source: body_json
+              path: $.data.userId
+              as: user_id
+      validity:
+        ttl_seconds: 14400
+      inject:
+        headers:
+          X-TOKEN: "${login:token}"
+          X-USER-ID: "${login:user_id}"

@@ -1,0 +1,9 @@
+id: api.daifa_admin.entry
+name: 代发后台入口（匿名，登录待适配）
+host: daifa_admin
+method: GET
+url: /login
+auth: none
+request: {}
+success:
+  status_code: 200

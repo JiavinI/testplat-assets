@@ -2,7 +2,20 @@
 
 Phase 4.1a 用例与登录流程仓库。平台在 Web 维护环境、地址和测试账号凭据；本仓库提供接口、case 和登录流程，不入 Control / Engine。
 
-基线：Engine `v0.5.0`（`5231fb4`）。秘密不进仓库。登录模板只写 `${secret:字段名}`，字段值由 Web 账号凭据提供，不再由服务器环境变量提供。
+本地开发使用 Control `scripts/dev.sh` 显式加载相邻 Engine 0.5.1；远程锁定仍是旧 0.5.0，尚未发布更新。秘密不进仓库。登录模板只写 `${secret:字段名}`，字段值由 Web 账号凭据提供，不再由服务器环境变量提供。
+
+## 平台与项目入口（2026-10-18）
+
+清单 `workspace` 声明平台、业务项目及配置归属，需配套本轮 Control。6 个平台、10 个运行工作区：GO2 网站、E3E3 网站；GSB 下的 GO2 / E3E3；代发后台、拿货端、GO2 管理后台分别有 GO2 / E3E3 上下文。
+
+- 旧 `gsb` ID 与资产保留，明确属于 GO2；`gsb_e3e3` 复用 GSB 定义、使用独立 E3E3 登录配置，source 为 e3e3。
+- 网站和所属 GSB 共用数据库环境／账号，不把网站 Cookie 与 API token 混用。初始网站资产仅检查匿名 SSO 入口，不提供 Page 执行或网站浏览器登录。
+- 后台的两个业务项目共用该后台配置，与网站账号分开；拿货端登录 source 使用 `${workspace:project}`，由 Control 从明确的绑定解析。管理后台 Cookie 登录不凭空注入业务项目参数。
+- `configuration` 指向同仓直接配置归属，双方 config 路径必须相同；旧清单可不填 workspace。
+- 代发后台 `df_admin_pending` 明确标为待适配：可维护独立账号和入口，需登录接口会在发请求前失败；不伪造验证码／Redis 协议。
+- 新环境模板的空 api_hosts 不用于运行，实际地址通过 Web / 安全导入维护。E3E3 旧配置没有 portal 地址，不猜测补齐。
+
+仅接口工作区可以暂时没有场景。现有 GSB 搜索和完整场景仍未通过真实业务验收。可复现假服务验收：在 Control 执行 `bash scripts/dev.sh python scripts/verify_platform_assets.py`，使用临时库、虚构账号和本机假服务。
 
 ## 目录约定
 
@@ -60,7 +73,7 @@ testplat-assets/
 - 形状与原先的 `login` 相同：`host` + `steps` + `extract` + `inject`；可选 `validity.ttl_seconds`。省略 `strategy` 即 `generic_flow`。
 - `host` 只写逻辑名（本仓库为 `unified_login`）。实际 URL 来自 Web 里所选环境的服务地址。
 - 凭据占位符写 `${secret:字段名}`。GSB 的字段名是 `username`、`password`。Web 账号的凭据字典按这两个字段填写。
-- 非秘密业务字面量直接写在流程里。GSB 登录的 `source` 固定为 `go2`，不从项目键推导，也不是凭据字段。
+- 非秘密业务字面量直接写在流程里。原 GO2 的 GSB 登录 `source` 保持 `go2`；E3E3 的配置为 `e3e3`，不从内部工作区键推导，也不是凭据字段。
 - 注入用 `${login:名字}`；路径里可用 `${login_host}`。
 - 本文件不写环境地址，不写账号密码，也不写 `TESTPLAT_*` 环境变量名。
 
@@ -125,4 +138,4 @@ GSB 冒烟在 Web 的填法：
 | Case | `case.gsb.smoke`（balance → search_product） |
 | 环境模板 | `config/envs/test.yaml`：`gsb=http://java.qa.gogoo.cn:8306`，`unified_login=http://tt.ximgs.net`。运行时以 Web 为准 |
 
-其它业务系统与接口本批不做。旧矩阵如何改为平台登录不在本仓库这一批。
+上述表是已有 GSB 范围；新增平台入口范围见本文开头。没有新增真实订单写操作。

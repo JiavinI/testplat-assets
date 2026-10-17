@@ -206,10 +206,16 @@ def _schema_check_profiles(config_root: Path, identities: dict) -> list[str]:
         return errors
     for name, body in identities.items():
         fields = catalog_fields[name]
+        pending = next(item for item in catalog.profiles if item.name == name)
+        if pending.unavailable_reason:
+            _ok(f"profile {name} 明确标记待适配，凭据字段已校验")
+            continue
         secrets = {field: _SCHEMA_PLACEHOLDER for field in fields}
         try:
+            from testplat_control.services.run_config import _workspace_values
+
             result = build_auth_from_document(
-                {"identities": {name: body}},
+                {"identities": {name: _workspace_values(body, "go2")}},
                 env="profiles",
                 secrets=secrets,
             )
@@ -412,7 +418,7 @@ def validate_project(key: str, meta: dict) -> list[str]:
             _fail(f"{key} api {api_id}: {exc}")
 
     if not case_ids:
-        errors.append(f"项目 {key} 无 case 资产")
+        _ok(f"{key} 暂无场景（允许仅接口的工作区）")
     for case_id in case_ids:
         try:
             case = registry.load_case(case_id)

@@ -1,0 +1,9 @@
+id: api.e3e3.entry
+name: E3E3 SSO 入口（匿名）
+host: sso
+method: GET
+url: /
+auth: none
+request: {}
+success:
+  status_code: 200

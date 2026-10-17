@@ -1,8 +1,107 @@
-# 仓库清单：项目键只允许 [a-z0-9_-]{1,64}；路径必须是仓库内相对路径。
-schema_version: "1"
+schema_version: '1'
 projects:
   gsb:
-    name: GSB 商家端
+    name: GO2 的 GSB
     assets: projects/gsb
     config: projects/gsb/config
     default_env: test
+    workspace:
+      platform: gsb
+      platform_name: GSB
+      project: go2
+      project_name: GO2
+  go2:
+    name: GO2 网站
+    assets: projects/go2
+    config: projects/gsb/config
+    default_env: test
+    workspace:
+      platform: go2
+      platform_name: GO2 网站
+      project: go2
+      project_name: GO2
+      configuration: gsb
+  gsb_e3e3:
+    name: E3E3 的 GSB
+    assets: projects/gsb
+    config: projects/e3e3/config
+    default_env: test
+    workspace:
+      platform: gsb
+      platform_name: GSB
+      project: e3e3
+      project_name: E3E3
+  e3e3:
+    name: E3E3 网站
+    assets: projects/e3e3
+    config: projects/e3e3/config
+    default_env: test
+    workspace:
+      platform: e3e3
+      platform_name: E3E3 网站
+      project: e3e3
+      project_name: E3E3
+      configuration: gsb_e3e3
+  daifa_admin:
+    name: 代发后台 · GO2
+    assets: projects/daifa_admin
+    config: projects/daifa_admin/config
+    default_env: test
+    workspace:
+      platform: daifa_admin
+      platform_name: 代发后台
+      project: go2
+      project_name: GO2
+  daifa_admin_e3e3:
+    name: 代发后台 · E3E3
+    assets: projects/daifa_admin
+    config: projects/daifa_admin/config
+    default_env: test
+    workspace:
+      platform: daifa_admin
+      platform_name: 代发后台
+      project: e3e3
+      project_name: E3E3
+      configuration: daifa_admin
+  daifa_picker:
+    name: 拿货端 · GO2
+    assets: projects/daifa_picker
+    config: projects/daifa_picker/config
+    default_env: test
+    workspace:
+      platform: daifa_picker
+      platform_name: 拿货端
+      project: go2
+      project_name: GO2
+  daifa_picker_e3e3:
+    name: 拿货端 · E3E3
+    assets: projects/daifa_picker
+    config: projects/daifa_picker/config
+    default_env: test
+    workspace:
+      platform: daifa_picker
+      platform_name: 拿货端
+      project: e3e3
+      project_name: E3E3
+      configuration: daifa_picker
+  admin_go2:
+    name: GO2 管理后台 · GO2
+    assets: projects/admin_go2
+    config: projects/admin_go2/config
+    default_env: test
+    workspace:
+      platform: admin_go2
+      platform_name: GO2 管理后台
+      project: go2
+      project_name: GO2
+  admin_go2_e3e3:
+    name: GO2 管理后台 · E3E3
+    assets: projects/admin_go2
+    config: projects/admin_go2/config
+    default_env: test
+    workspace:
+      platform: admin_go2
+      platform_name: GO2 管理后台
+      project: e3e3
+      project_name: E3E3
+      configuration: admin_go2

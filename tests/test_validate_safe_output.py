@@ -103,6 +103,7 @@ def test_constructor_errors_hide_secret() -> None:
     class _Item:
         name = "gsb_login"
         credential_fields = ("username",)
+        unavailable_reason = None
 
     class _Catalog:
         profiles = (_Item(),)
