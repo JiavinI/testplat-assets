@@ -1,0 +1,43 @@
+id: api.gsb.b2.aftersale.orders.create
+name: 申请售后
+desc: |
+  B2 买家对已支付且已完成项目要求拿货状态的订单，按订单商品行 ID 和申请数量创建售后申请；成功返回售后申请 ID，供后续退件签收入库使用。
+  后端已确认同一订单商品行组合的请求具备幂等性，调用方仅可针对明确的临时频控错误进行有限重试。
+# 后端确认该接口按同一订单和商品行售后申请幂等；仅允许针对明确的临时频控错误受控重试。
+idempotent: true
+host: gsb
+method: POST
+url: /api/b2/aftersale/orders/create
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    apply_reason:
+      type: string
+      required: true
+      description: 售后原因
+    items:
+      type: array
+      required: true
+      description: 售后商品明细
+    order_no:
+      type: string
+      required: true
+      description: 订单号
+    business_after_sale_type:
+      type: string
+      required: true
+      description: 售后类型
+    return_goods_type:
+      type: string
+      required: true
+      description: 退货类型
+  body:
+    applyReason: "${apply_reason!}"
+    items: "${items!}"
+    orderNo: "${order_no!}"
+    businessAfterSaleType: "${business_after_sale_type!}"
+    returnGoodsType: "${return_goods_type!}"

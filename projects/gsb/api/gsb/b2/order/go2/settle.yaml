@@ -1,0 +1,20 @@
+id: api.gsb.b2.order.go2.settle
+projects: [go2]
+name: 预结算 GO2 订单
+desc: B2 买家按订单号查询 GO2 订单的后端权威应付金额、支付截止时间和整单商品数量；成功响应的 $.data.totalAmount 用于第三方收银台金额校验，本接口只查询不执行支付。
+host: gsb
+method: POST
+url: /api/b2/orders/settle
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    order_nos:
+      type: array
+      required: true
+      description: 待预结算的 GO2 订单号列表
+  body:
+    orderNos: "${order_nos!}"

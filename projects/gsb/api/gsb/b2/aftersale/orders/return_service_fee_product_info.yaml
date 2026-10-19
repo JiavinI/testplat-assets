@@ -1,0 +1,19 @@
+id: api.gsb.b2.aftersale.orders.return_service_fee_product_info
+name: 查询售后商品与退货服务费
+desc: 买家在申请售后前，按订单商品行 ID 和本次退货数量查询可售后商品及退货服务费信息；调用方必须把同一批 items 原样交给后续售后申请，避免部分退货数量在预检和创建之间漂移。
+host: gsb
+method: POST
+url: /api/b2/aftersale/orders/returnServiceFee/getProductInfo
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    items:
+      type: array
+      required: true
+      description: 本次售后的订单商品行及数量列表
+  body:
+    items: "${items!}"

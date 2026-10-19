@@ -2,7 +2,7 @@
 
 Phase 4.1a 用例与登录流程仓库。平台在 Web 维护环境、地址和测试账号凭据；本仓库提供接口、case 和登录流程，不入 Control / Engine。
 
-本地开发使用 Control `scripts/dev.sh` 显式加载相邻 Engine 0.5.1；远程锁定仍是旧 0.5.0，尚未发布更新。秘密不进仓库。登录模板只写 `${secret:字段名}`，字段值由 Web 账号凭据提供，不再由服务器环境变量提供。
+本次 GSB 迁移使用本地候选 Engine 0.5.2 和配套 Control；用 Control `scripts/dev.sh` 显式加载相邻 Engine。Control 远程仍锁定 0.5.1，尚未推送本候选或更新锁定。秘密不进仓库。登录模板只写 `${secret:字段名}`，字段值由 Web 账号凭据提供，不再由服务器环境变量提供。
 
 ## 平台与项目入口（2026-10-18）
 
@@ -46,15 +46,17 @@ testplat-assets/
 
 - 必需字段：`id`、`name`、`method`、`url`、`host`；可选 `auth`、`request`、`success`。
 - `request.type`：`json`（默认）/ `form` / `query` / `raw`。**query 参数写在 `request.body`**，不要写 `params`。
-- 入参：在 `request.inputs` 用「字段名 → 类型名」（如 `product_keyword: str`）声明；body 里用 `${字段名}`。
+- 入参：在 `request.inputs` 声明 `{type, required, description, default}`；支持 string/number/boolean/object/array，结构化对象和数组在表单中以 JSON 编辑。
 - 成功判定：`success.path` + `success.value`，或 `success.status_code`。
-- `auth`：账号名，或 `none`（匿名）。4.1a 不增加步骤级 `account`；GSB 接口写 `auth: gsb.b2.primary`。
+- 调用身份：API 不绑定账号；调试时选择 identity，场景步骤声明 identity，none 表示匿名。旧 API auth 仅保留兼容回退。
+- `request.template: structured`：支持 `${x!}` 必填、`${x|默认}`、`${a.b}`、now()/date_add_days()，完整占位符保留 JSON 类型，缺失可选字段省略。未标记资产保持原字符串渲染。
+- `projects: [go2]` / `[e3e3]` 限制项目专属接口；不声明即公共契约，运行上下文提供项目及账号。
 - 资产内**禁止** `${secret:}` / `${login:}` / `${login_host}`（这些只属于登录流程）。
 
 ### Case
 
 - `schema_version: "0.2"`；`id` 与路径一致。
-- 顺序 `steps`，每步 `type: api` + `api_id`；可用顶层 / 步骤 `params`。
+- 顺序 `steps`，每步 `type: api` + `api_id`；可用顶层 / 步骤 `params`，并用步骤 identity 选择测试账号。
 - 步骤参数引用 case 参数：`${params.xxx}`。
 
 ### 环境模板（`config/envs/<env>.yaml`）
@@ -87,22 +89,19 @@ testplat-assets/
 
 | 写法 | 说明 |
 |---|---|
-| `${x!}` 必填后缀 | Engine 会把 `x!` 当成变量名 |
-| `${x\|默认值}` | 不支持；默认值放 case 参数或字面量 |
-| `${a.b.c}` 点号路径 | 只支持平铺键；嵌套对象需先拆平 |
 | `request.params`（query） | 发送侧读的是 `request.body` |
 | 数据驱动 case / suites / UI 步骤 | 本批不做 |
 | 跨步骤取响应字段做下一步入参 | 能力未在本批资产中使用；需要时先人工传参 |
 | 插件登录（如 `vcode_redis`） | 需安装插件并在 `login_plugins` 白名单声明 |
 | api / case 内写秘密字面量或 `${secret:}` | 加载期直接拒绝 |
-| 步骤字段 `account` | 4.1b 才扩展；当前 schema 0.2 会拒绝 |
+| 步骤字段 `account` | 使用 identity；account 仍为未知字段 |
 | `${secret:TESTPLAT_*}` | 不再作为平台主路径；登录流程只用凭据字段名 |
 
-订单创建类等依赖点号引用与默认值语法的旧接口，首批不迁移。
+2026-10-19 已迁移 24 个 GSB 接口与 1 份只读 checks 参考；完整路径、项目、必填与兼容说明见 [迁移清单](docs/gsb-api-migration-2026-10-19.md)。
 
 ## 新增资产步骤
 
-1. 在对应 `projects/<project>/api/...` 新增 YAML，补齐 `id`（与路径一致），只用上表「已支持」字段。需要登录的接口写账号名，例如 `auth: gsb.b2.primary`。
+1. 在对应 `projects/<project>/api/...` 新增 YAML，补齐 `id`（与路径一致），只用上表「已支持」字段。需要登录时由调用者选择账号，不把账号名写入 API。
 2. 若需登录：在 `config/auth/_profiles.yaml` 增加或复用流程。凭据字段名写入 `${secret:字段名}`，到 Web 对应该环境的账号里填写值，不要写进 Git，也不要加服务器环境变量。
 3. 若需新的逻辑 host：在 Web 环境的服务地址里填写。`config/envs/<env>.yaml` 只在要更新示例模板时才改。
 4. 写 case：`scenarios/.../*.case.yaml`，`api_id` 指向已有接口；参数给示例值。
@@ -134,7 +133,7 @@ GSB 冒烟在 Web 的填法：
 |---|---|
 | 登录流程 | `gsb_login`：`unified_login` + `GET /site/login`（query：`username` / `password` / 字面量 `source: go2`）；token=`$.data.hash`→`X-TOKEN`，user_id=`$.data.userId`→`X-USER-ID`；`ttl_seconds=14400` |
 | 账号 | Web 账号完整引用 `gsb.b2.primary` 引用 `gsb_login`；凭据字段 `username`、`password` |
-| API | `api.gsb.account.balance`、`api.gsb.order.search_product`（均 `auth: gsb.b2.primary`） |
+| API | 24 个规范接口 `api.gsb.b1.*` / `api.gsb.b2.*`；旧余额和搜索 ID 保留兼容，不绑定账号 |
 | Case | `case.gsb.smoke`（balance → search_product） |
 | 环境模板 | `config/envs/test.yaml`：`gsb=http://java.qa.gogoo.cn:8306`，`unified_login=http://tt.ximgs.net`。运行时以 Web 为准 |
 

@@ -1,0 +1,44 @@
+id: api.gsb.b2.pay.withdraw_refuse_notify
+name: 提现退票通知
+desc: 云商通提现退票回调通知，驱动平台更新退票处理状态。
+host: gsb
+method: POST
+url: /api/b2/pay/withdraw/refuse/notify
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    ori_biz_order_no:
+      type: string
+      required: true
+      description: 原业务流水号
+    ori_order_no:
+      type: string
+      required: true
+      description: 原订单号
+    refuse_order_no:
+      type: string
+      required: true
+      description: 退票订单号
+    refuse_amount:
+      type: string
+      required: true
+      description: 退票金额
+    fee:
+      type: string
+      required: true
+      description: 手续费
+    refuse_reason:
+      type: string
+      required: true
+      description: 退票原因
+  body:
+    oriBizOrderNo: "${ori_biz_order_no!}"
+    oriOrderNo: "${ori_order_no!}"
+    refuseOrderNo: "${refuse_order_no!}"
+    refuseAmount: "${refuse_amount!}"
+    fee: "${fee!}"
+    refuseReason: "${refuse_reason!}"

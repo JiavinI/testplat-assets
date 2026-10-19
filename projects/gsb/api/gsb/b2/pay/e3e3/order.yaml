@@ -1,0 +1,31 @@
+id: api.gsb.b2.pay.e3e3.order
+projects: [e3e3]
+name: e3e3 余额支付订单
+desc: e3e3 余额订单支付接口，以 BALANCE 方式提交一个或多个待支付订单号；调用方复用原 gsb 身份，并仅在支付步骤通过 account_fields 按需读取敏感支付字段。成功条件为 $.errorCode == "0"，API 契约不携带身份或秘密，调用方必须先完成余额与金额校验。
+host: gsb
+method: POST
+url: /api/b2/pay/order
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    pay_way:
+      type: string
+      required: false
+      description: 支付方式
+      default: BALANCE
+    password:
+      type: string
+      required: true
+      description: 支付密码
+    order_nos:
+      type: array
+      required: true
+      description: 待支付订单号数组
+  body:
+    payWay: "${pay_way|BALANCE}"
+    password: "${password!}"
+    orderNos: "${order_nos!}"

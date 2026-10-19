@@ -1,0 +1,59 @@
+id: api.gsb.b2.order.search_page
+name: 查询订单分页
+desc: B2 采购商按条件查询订单分页。
+host: gsb
+method: POST
+url: /api/b2/orders/page
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    search_field:
+      type: string
+      required: true
+      description: 搜索字段
+    search_terms:
+      type: string
+      required: true
+      description: 搜索关键字
+    order_state:
+      type: string
+      required: false
+      description: 订单状态
+    order_start_time:
+      type: string
+      required: false
+      description: 开始时间
+    order_end_time:
+      type: string
+      required: false
+      description: 结束时间
+    take_states:
+      type: array
+      required: false
+      description: 拿货状态列表
+    page_size:
+      type: number
+      required: true
+      description: 每页数量
+    page_no:
+      type: number
+      required: true
+      description: 页码
+    error_print_tag:
+      type: number
+      required: true
+      description: 错误打印标记
+  body:
+    searchField: "${search_field!}"
+    searchTerms: "${search_terms!}"
+    orderState: "${order_state}"
+    orderStartTime: "${order_start_time}"
+    orderEndTime: "${order_end_time}"
+    takeStates: "${take_states}"
+    pageSize: "${page_size!}"
+    pageNo: "${page_no!}"
+    errorPrintTag: "${error_print_tag!}"
