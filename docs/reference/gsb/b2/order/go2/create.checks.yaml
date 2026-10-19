@@ -1,0 +1,30 @@
+# 运行命令：uv run testplat check api.gsb.b2.order.go2.create.checks --env test --project go2 --http-log failed
+target: api.gsb.b2.order.go2.create
+cases:
+  - name: 缺收件人
+    with:
+      product: {id: "P001", number: "NO001", sku_price: "100.00", sku_color: "红", sku_size: "M"}
+      express: {id: "EXP001", name: "韵达"}
+      quantity: 1
+      freight_fee: "0.00"
+      web_order_amount: "100.00"
+    expect: {errorCode: PARAM_MISSING}
+  - name: 数量为负
+    with:
+      product: {id: "P001", number: "NO001", sku_price: "100.00", sku_color: "红", sku_size: "M"}
+      quantity: -1
+      receiver: {name: "张三", mobile: "13800000000"}
+      express: {id: "EXP001", name: "韵达"}
+      freight_fee: "0.00"
+      web_order_amount: "0.00"
+    expect: {errorCode: INVALID_QTY}
+  - name: 重复下单
+    with:
+      product: {id: "P001", number: "NO001", sku_price: "100.00", sku_color: "红", sku_size: "M"}
+      quantity: 1
+      receiver: {name: "张三", mobile: "13800000000"}
+      express: {id: "EXP001", name: "韵达"}
+      freight_fee: "0.00"
+      web_order_amount: "100.00"
+    repeat: 2
+    expect_each: ["0", DUPLICATE_ORDER]

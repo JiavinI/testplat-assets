@@ -1,0 +1,9 @@
+id: api.admin_go2.entry
+name: 管理后台受保护页（登录验证）
+host: admin_go2
+method: GET
+url: /nx/withdrawView
+auth: admin_go2.default
+request: {}
+success:
+  status_code: 200

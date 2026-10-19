@@ -1,0 +1,25 @@
+identities:
+  admin_go2_login:
+    login:
+      host: admin_go2
+      session: cookie
+      steps:
+      - name: fetch_session
+        method: GET
+        path: /login
+      - name: login
+        method: POST
+        path: /login
+        body:
+          type: form
+          fields:
+            username: ${secret:username}
+            password: ${secret:password}
+      probe:
+        path: /nx/withdrawView
+        success:
+          status_code: 200
+          reject_location_contains: /login
+          body_not_contains: <form id="loginFrom"
+      validity:
+        ttl_seconds: 1000

@@ -1,0 +1,9 @@
+id: api.go2.entry
+name: GO2 SSO 入口（匿名）
+host: sso
+method: GET
+url: /
+auth: none
+request: {}
+success:
+  status_code: 200

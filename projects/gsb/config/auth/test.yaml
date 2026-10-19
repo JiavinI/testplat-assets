@@ -1,7 +1,0 @@
-# 兼容夹层：运行时凭据由 Web 维护，本文件不再声明登录身份。
-# 登录流程见同目录 _profiles.yaml 的 gsb_login。
-# Web 账号名仍为 gsb（对应 API 的 auth: gsb），凭据字段为 username、password。
-# 不再使用 TESTPLAT_GSB_USERNAME、TESTPLAT_GSB_PASSWORD，也不回退服务器环境变量。
-# 空 identities 让历史 load_auth 读到不含秘密的空表。
-# 项目已有 Web 环境时，平台主路径不读本文件。
-identities: {}

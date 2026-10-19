@@ -1,0 +1,14 @@
+id: api.gsb.b2.order.service_fee
+name: 查询服务费
+desc: B2 买家查询订单服务费，用于全款链路提取 PLATFORM_DELIVER_FEE，并用于货款后付链路提取 GOODS_PAY_LATER_FEE。
+host: gsb
+method: GET
+url: /api/b2/orders/serviceFee
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: query
+  inputs: {}
+  body: {}

@@ -1,0 +1,28 @@
+id: api.gsb.b2.order.e3e3.coupons
+projects: [e3e3]
+name: 查询 e3e3 可用优惠券
+desc: e3e3 按商品 SKU 价格、商品 ID 和数量查询用户可用优惠券；下单链路只接受同时满足 usable=true、bestSelection=true 的用户券，并使用 couponsShares[0].shareAmount 作为当前单商品的实际分摊金额，未找到合格券时应在建单前失败。
+host: gsb
+method: POST
+url: /api/b2/orders/coupons
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    product:
+      type: object
+      required: true
+      description: 商品语义对象
+    quantity:
+      type: number
+      required: true
+      description: 商品数量
+  body:
+    items:
+      - price: "${product.sku_price}"
+        productId: "${product.id!}"
+        quantity: "${quantity!}"
+    selectedCouponIds: []

@@ -1,0 +1,165 @@
+id: api.gsb.b2.order.e3e3.create_with_coupon
+projects: [e3e3]
+name: 创建 e3e3 优惠券待支付订单
+desc: e3e3 优惠券待支付订单创建接口，在普通建单字段基础上写入已选用户券 ID、券面值和最优券标记；shipping 决定 sendType 及可选 sendTime，webOrderAmount 使用后端优惠结果计算的折后金额，用户券必须先由优惠券查询步骤校验。
+host: gsb
+method: POST
+url: /api/b2/orders/create
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    product:
+      type: object
+      required: true
+      description: 商品和 SKU 语义对象
+    receiver:
+      type: object
+      required: false
+      description: 收件人语义对象
+    express:
+      type: object
+      required: true
+      description: 快递语义对象
+    service_fee:
+      type: object
+      required: false
+      description: PLATFORM_DELIVER_FEE 完整对象
+    service_fee_total_origin:
+      type: string
+      required: true
+      description: 服务费原价总额
+    service_fee_total:
+      type: string
+      required: true
+      description: 服务费实价总额
+    quantity:
+      type: number
+      required: true
+      description: 下单数量
+    freight_fee:
+      type: string
+      required: true
+      description: 运费
+    web_order_amount:
+      type: string
+      required: false
+      description: 普通总额
+    coupon:
+      type: object
+      required: true
+      description: 已选用户券
+    discounted_web_order_amount:
+      type: string
+      required: true
+      description: 优惠后应付金额
+    channel:
+      type: string
+      required: false
+      description: 下单渠道
+      default: PC
+    shipping:
+      type: object
+      required: true
+      description: 已校验的单 SKU 发货配置
+    source_channel:
+      type: string
+      required: false
+      description: 来源渠道
+      default: TAOBAO
+    shop_source_type:
+      type: string
+      required: false
+      description: 店铺来源类型
+      default: TAOBAO
+    create_from:
+      type: string
+      required: false
+      description: 创建来源
+      default: FROM_MANUAL
+  body:
+    orderCreateParameters:
+      - channel: "${channel|PC}"
+        sendType: "${shipping.send_type!}"
+        shipperType: PLATFORM
+        orderItems:
+          - color: "${product.sku_color}"
+            number: "${product.number}"
+            price: "${product.sku_price}"
+            productId: "${product.id!}"
+            productType: "${product.type}"
+            quantity: "${quantity!}"
+            size: "${product.sku_size}"
+            supplierAddress: "${product.supplier_address}"
+            supplierId: "${product.supplier_id}"
+            supplierName: "${product.supplier_name}"
+            itemType: GOODS
+            supplierPhone: "${product.supplier_phone}"
+            isOutSupplier: false
+            giftId: null
+            customCertificateName: ""
+            customCertificateId: ""
+            remoteProductTag: "${product.remote_product_tag}"
+            categoryId: "${product.category_id}"
+            productNumber: "${product.number}"
+            imageUrl: "${product.image_url}"
+            colors: "${product.sku_color}"
+            sizes: "${product.sku_size}"
+            matchedSkuTag: MATCHED_SKU
+        # 后端 wire contract 历史拼写就是 Platfrom，不能改成 Platform。
+        isDisabledPlatfrom: false
+        isDisabledSupplier: true
+        _lastServiceFeeParams:
+          quantity: "${quantity!}"
+          remoteQuantity: 0
+        serviceFeeDetailData:
+          id: "${service_fee.id}"
+          name: "${service_fee.name}"
+          type: "${service_fee.type}"
+          originPrice: "${service_fee.originPrice}"
+          price: "${service_fee.price}"
+          totalOriginPrice: "${service_fee_total_origin!}"
+          totalPrice: "${service_fee_total!}"
+          maxValueAmount: "${service_fee.maxValueAmount}"
+          vipDiscount: "${service_fee.vipDiscount}"
+          proxyDeliverBillingType: "${service_fee.proxyDeliverBillingType}"
+          proxyDeliverFee: "${service_fee.proxyDeliverFee}"
+          remoteDeliverFee: "${service_fee.remoteDeliverFee}"
+          remoteTotalOriginPrice: "${service_fee.remoteTotalOriginPrice}"
+          totalNormalOriginPrice: "${service_fee.totalNormalOriginPrice}"
+          totalNormalPrice: "${service_fee.totalNormalPrice}"
+          singleRemoteDeliverFee: "${service_fee.singleRemoteDeliverFee}"
+        supplierId: "${product.supplier_id}"
+        isOutSupplier: false
+        orderGifts: []
+        # 后端字段接收用户券实例 ID，不能替换成券模板 couponId。
+        userCouponId: "${coupon.id!}"
+        couponValueAmount: "${coupon.value_amount!}"
+        isBestSelection: "${coupon.best_selection!}"
+        expressId: "${express.id!}"
+        firstScaleAmount: "${express.first_scale_amount}"
+        # WHOLE 不提供 send_time_days 时模板会省略该字段；PART 已由业务 flow 校验必须提供。
+        sendTime: "${date_add_days(shipping.send_time_days)}"
+        receiverPhone: "${receiver.mobile}"
+        receiverName: "${receiver.name}"
+        receiverAddress: "${receiver.address}"
+        receiverProvince: "${receiver.province}"
+        receiverCity: "${receiver.city}"
+        receiverDistrict: "${receiver.county}"
+        provinceId: "${receiver.province_id}"
+        cityId: "${receiver.city_id}"
+        districtId: "${receiver.county_id}"
+        remark: "e3e3优惠券下单-自动化-${now()}"
+        sourceChannel: "${source_channel|TAOBAO}"
+        defaultExpressId: "${express.default_id}"
+        intellectExpressId: "${express.intellect_express_id}"
+        strategyId: "${express.strategy_id}"
+        costFirstTag: "${express.cost_first_tag}"
+        expressName: "${express.name}"
+        freightFee: "${freight_fee!}"
+        shopSourceType: "${shop_source_type|TAOBAO}"
+        webOrderAmount: "${discounted_web_order_amount!}"
+        createFrom: "${create_from|FROM_MANUAL}"

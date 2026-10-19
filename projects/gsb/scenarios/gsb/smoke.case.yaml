@@ -8,10 +8,12 @@ params:
 steps:
   - step_id: balance
     type: api
+    identity: gsb.b2.primary
     api_id: api.gsb.account.balance
     name: 查询账户余额
   - step_id: search_product
     type: api
+    identity: gsb.b2.primary
     api_id: api.gsb.order.search_product
     name: 搜索商品
     params:

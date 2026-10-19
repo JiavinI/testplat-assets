@@ -1,0 +1,28 @@
+identities:
+  df_picker_login:
+    login:
+      host: daifa_picker
+      steps:
+      - name: login
+        method: POST
+        path: /login
+        headers:
+          Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+        body:
+          type: form
+          fields:
+            username: ${secret:username}
+            password: ${secret:password}
+            source: ${workspace:project}
+        extract:
+        - source: body_json
+          path: $.data.token
+          as: token
+        - source: body_json
+          path: $.data.userId
+          as: user_id
+      validity:
+        ttl_seconds: 14400
+      inject:
+        headers:
+          Authorization: ${login:token}

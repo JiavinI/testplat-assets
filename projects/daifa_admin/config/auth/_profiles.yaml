@@ -1,0 +1,8 @@
+identities:
+  df_admin_pending:
+    unavailable:
+      reason: 代发后台验证码／Redis 登录待适配；已保存独立账号，当前不能执行需登录接口。
+      credentials:
+        username: ${secret:username}
+        password: ${secret:password}
+        login_password: ${secret:login_password}

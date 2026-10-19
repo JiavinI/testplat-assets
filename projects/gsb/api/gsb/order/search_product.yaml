@@ -1,17 +1,20 @@
-# 搜索商品。query 参数写在 request.body（Engine 0.5 发送时读 body，不读 params）。
-# 必填：在 inputs 声明类型；占位符只用 ${name}，禁止 ${name!} / ${name|默认} / ${a.b.c}。
+# 历史 ID 兼容入口；新增调用使用 b2 下的规范 ID。
 id: api.gsb.order.search_product
 name: 搜索商品
+desc: B2 买家按关键字搜索可下单商品，用于后续按颜色/尺码选择 SKU。
 host: gsb
 method: GET
 url: /api/b2/orders/search/product
-auth: gsb
-request:
-  type: query
-  inputs:
-    product_keyword: str
-  body:
-    keywords: "${product_keyword}"
 success:
   path: $.errorCode
   value: "0"
+request:
+  template: structured
+  type: query
+  inputs:
+    product_keyword:
+      type: string
+      required: true
+      description: 搜索关键字
+  body:
+    keywords: "${product_keyword!}"
