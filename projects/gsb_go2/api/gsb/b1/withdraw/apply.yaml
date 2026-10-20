@@ -1,0 +1,24 @@
+id: api.gsb.b1.withdraw.apply
+name: 提交提现申请
+desc: B1 商家提交提现申请，发起提现受理流程。
+host: gsb
+method: POST
+url: /api/b1/withdraw/apply
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    bank_card_no:
+      type: string
+      required: true
+      description: 银行卡号
+    withdraw_amount:
+      type: string
+      required: true
+      description: 提现金额
+  body:
+    bankCardNo: "${bank_card_no!}"
+    withdrawAmount: "${withdraw_amount!}"

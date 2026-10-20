@@ -1,0 +1,93 @@
+schema_version: '0.3'
+id: flow.go2.order.full_pay.resolve_item
+name: 解析一个商品及唯一 SKU
+inputs:
+  item:
+    type: object
+outputs:
+  order_item:
+    color: ${inputs.item.sku_color}
+    size: ${inputs.item.sku_size}
+    number: ${product.productNumber}
+    productNumber: ${product.productNumber}
+    productId: ${product.productId}
+    productType: ${product.productType}
+    price: ${sku.price}
+    quantity: ${inputs.item.quantity}
+    supplierId: ${product.supplierId}
+    supplierName: ${product.supplierName}
+    supplierPhone: ${product.supplierPhone}
+    supplierAddress: ${product.supplierAddress}
+    productionState: ${product.productionState}
+    categoryId: ${product.categoryId}
+    imageUrl: ${product.imageUrl}
+    itemType: GOODS
+    isOutSupplier: false
+    giftId: null
+    customCertificateName: ''
+    customCertificateId: ''
+    colors: ${inputs.item.sku_color}
+    sizes: ${inputs.item.sku_size}
+    matchedSkuTag: MATCHED_SKU
+  product_info:
+    productId: ${product.productId}
+    color: ${inputs.item.sku_color}
+    size: ${inputs.item.sku_size}
+    quantity: ${inputs.item.quantity}
+  quantity: ${inputs.item.quantity}
+  line_amount: ${line_amount}
+steps:
+- step_id: valid_quantity
+  type: assert
+  operation: positive_integer
+  actual: ${inputs.item.quantity}
+- step_id: search
+  type: api
+  name: 按完整货号搜索当前商品
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.order.search_product
+  params:
+    product_keyword: ${inputs.item.product_number}
+  output: search
+- step_id: product
+  type: extract
+  source: ${search.body}
+  selector:
+    path:
+    - data
+    where:
+    - path:
+      - productNumber
+      equals: ${inputs.item.product_number}
+  cardinality: one
+  value_type: object
+  output: product
+- step_id: sku
+  type: extract
+  source: ${product}
+  selector:
+    path:
+    - skuList
+    where:
+    - path:
+      - color
+      equals: ${inputs.item.sku_color}
+    - path:
+      - size
+      equals: ${inputs.item.sku_size}
+  cardinality: one
+  value_type: object
+  output: sku
+- step_id: sku_id_present
+  type: assert
+  operation: non_empty
+  actual: ${sku.skuId}
+- step_id: line_amount
+  type: decimal
+  operation: multiply
+  operands:
+  - ${sku.price}
+  - ${inputs.item.quantity}
+  scale: 2
+  rounding: HALF_UP
+  output: line_amount

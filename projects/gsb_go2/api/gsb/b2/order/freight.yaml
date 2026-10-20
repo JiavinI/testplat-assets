@@ -1,0 +1,29 @@
+id: api.gsb.b2.order.freight
+name: 计算运费
+desc: B2 买家根据快递方案、商品数量与收件省份计算运费。
+host: gsb
+method: POST
+url: /api/b2/orders/freight
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    express_id:
+      type: string
+      required: true
+      description: 快递方案 ID
+    quantity:
+      type: number
+      required: true
+      description: 商品数量
+    receiver_province:
+      type: string
+      required: true
+      description: 收件省份
+  body:
+    expressId: "${express_id!}"
+    productCount: "${quantity!}"
+    receiverProvince: "${receiver_province!}"

@@ -1,0 +1,34 @@
+id: api.gsb.b2.fund.transfer.list
+name: 查询资金划拨记录
+desc: GSB B2 买家按完整订单号查询资金划拨记录，供后续按资金单 ID、待支付状态和已确认的业务类型选择补款项；成功响应中的 records 保留资金单金额及业务字段，调用方不得按返回顺序或金额猜测资金单。
+host: gsb
+method: POST
+url: /api/fund/transfer/list
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    page_no:
+      type: number
+      required: true
+      description: 资金单列表页码
+    page_size:
+      type: number
+      required: true
+      description: 资金单列表每页条数
+    search_field:
+      type: string
+      required: true
+      description: 资金单查询字段，通常为 orderNo
+    search_terms:
+      type: string
+      required: true
+      description: 完整订单号
+  body:
+    pageNo: "${page_no!}"
+    pageSize: "${page_size!}"
+    searchField: "${search_field!}"
+    searchTerms: "${search_terms!}"

@@ -1,0 +1,118 @@
+schema_version: '0.3'
+id: flow.go2.order.full_pay.create_items_pending
+name: 创建并校验 GO2 全款待支付订单
+inputs:
+  items:
+    type: array
+  options:
+    type: object
+outputs:
+  order:
+    order_no: ${settled_order.orderNo}
+    amount: ${settled.body.data.totalAmount}
+    item_quantity: ${settled_order.itemQuantity}
+  web_order_amount: ${settled.body.data.totalAmount}
+steps:
+- step_id: full_payment_only
+  type: assert
+  operation: equal
+  actual: ${inputs.options.goods_pay_later_flag}
+  expected: '0'
+- step_id: prepared
+  type: flow
+  flow_id: flow.go2.order.full_pay.prepare_items
+  params:
+    items: ${inputs.items}
+    options: ${inputs.options}
+  output: prepared
+- step_id: service_fee_total
+  type: decimal
+  operation: multiply
+  operands:
+  - ${prepared.service_fee_price}
+  - ${prepared.total_quantity}
+  scale: 2
+  rounding: HALF_UP
+  output: service_fee_total
+- step_id: submitted_amount
+  type: decimal
+  operation: add
+  operands:
+  - ${prepared.goods_amount}
+  - ${prepared.freight_fee}
+  - ${service_fee_total}
+  scale: 2
+  rounding: HALF_UP
+  output: submitted_amount
+- step_id: created
+  type: api
+  name: 创建全款多商品待支付订单
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.order.go2.create_items
+  params:
+    order_items: ${prepared.order_items}
+    receiver: ${prepared.receiver}
+    express: ${prepared.express}
+    freight_fee: ${prepared.freight_fee}
+    web_order_amount: ${submitted_amount}
+    channel: ${inputs.options.channel}
+    send_type: ${inputs.options.send_type}
+    source_channel: ${inputs.options.source_channel}
+    shop_source_type: ${inputs.options.shop_source_type}
+    create_from: ${inputs.options.create_from}
+    goods_pay_later_flag: ${inputs.options.goods_pay_later_flag}
+    remark: ${inputs.options.remark}
+  output: created
+- step_id: created_order
+  type: extract
+  source: ${created.body}
+  selector:
+    path:
+    - data
+    - 0
+    - orderNo
+  cardinality: one
+  value_type: string
+  output: created_order
+- step_id: created_order_present
+  type: assert
+  operation: non_empty
+  actual: ${created_order}
+- step_id: settled
+  type: api
+  name: 取得后端权威预结算结果
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.order.go2.settle
+  params:
+    order_nos:
+    - ${created_order}
+  output: settled
+- step_id: settled_order
+  type: extract
+  source: ${settled.body}
+  selector:
+    path:
+    - data
+    - orders
+    where:
+    - path:
+      - orderNo
+      equals: ${created_order}
+  cardinality: one
+  value_type: object
+  output: settled_order
+- step_id: settled_order_matches
+  type: assert
+  operation: equal
+  actual: ${settled_order.orderNo}
+  expected: ${created_order}
+- step_id: settled_amount_matches
+  type: assert
+  operation: decimal_equal
+  actual: ${settled.body.data.totalAmount}
+  expected: ${submitted_amount}
+- step_id: settled_quantity_matches
+  type: assert
+  operation: equal
+  actual: ${settled_order.itemQuantity}
+  expected: ${prepared.total_quantity}

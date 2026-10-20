@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""用 Engine 0.5 加载本仓库全部资产，并检查 case 对 api 的引用。
+"""加载清单资产或独立候选，静态检查 Case 0.2 / 场景 0.3 及递归引用。
 
 不发 HTTP 请求，也不写入凭据。登录流程在 ``config/auth/_profiles.yaml``：
 ``${secret:字段名}`` 不得是 ``TESTPLAT_*``。运行时凭据由 Web 维护，
@@ -20,9 +20,13 @@
 
 from __future__ import annotations
 
+import argparse
 import re
+import shutil
 import sys
+import tempfile
 from pathlib import Path
+from uuid import uuid4
 
 import yaml
 
@@ -115,6 +119,137 @@ def _discover_case_ids(assets_root: Path) -> list[str]:
         parts = list(rel.parent.parts) + [stem] if rel.parent != Path(".") else [stem]
         ids.append("case." + ".".join(parts))
     return ids
+
+
+def _discover_flow_ids(assets_root: Path) -> list[str]:
+    return [
+        "flow." + ".".join(path.relative_to(assets_root / "scenarios").parts)[: -len(".flow.yaml")]
+        for path in sorted((assets_root / "scenarios").rglob("*.flow.yaml"))
+    ]
+
+
+def _check_description(definition: dict, registry) -> None:
+    """Follow Engine's description, loading API contracts without running steps."""
+    for step in definition["steps"]:
+        if step["type"] == "api":
+            registry.load_api(step["asset_id"])
+        if step.get("definition"):
+            _check_description(step["definition"], registry)
+
+
+def validate_scenarios(assets_root: Path) -> list[str]:
+    import testplat_engine
+    from testplat_engine.adapters.filesystem.registry import Registry
+
+    errors: list[str] = []
+    registry = Registry(assets_root)
+    describe = getattr(testplat_engine, "describe_case", None)
+    for case_id in _discover_case_ids(assets_root):
+        try:
+            if callable(describe):
+                definition = describe(case_id, assets_root)
+            else:
+                definition = None
+            if definition is not None:
+                _check_description(definition, registry)
+                _ok(f"case {case_id} schema 0.3 定义与递归引用通过")
+            else:
+                # Strict legacy loader rejects 0.3 when the installed Engine lacks support.
+                case = registry.load_case(case_id)
+                for step in case.steps:
+                    registry.load_api(step.api_id)
+                _ok(f"case {case_id} schema 0.2 引用通过")
+        except Exception as exc:  # noqa: BLE001
+            message = _safe_error(f"加载 case {case_id}（0.3 需支持 describe_case 的 Engine）", exc)
+            errors.append(message)
+            _fail(message)
+
+    flow_ids = _discover_flow_ids(assets_root)
+    if flow_ids and not callable(describe):
+        message = "flow 需支持公开 describe_case 的 Engine；当前能力不可用"
+        errors.append(message)
+        _fail(message)
+        return errors
+    if not flow_ids:
+        return errors
+    # A flow is not an executable entry. Wrap each independently so orphan flows
+    # receive the same Engine validation, without importing its internal loader.
+    with tempfile.TemporaryDirectory(prefix="testplat-flow-validate-") as directory:
+        root = Path(directory)
+        for name in ("api", "scenarios"):
+            source = assets_root / name
+            if source.is_dir():
+                shutil.copytree(source, root / name)
+        for flow_id in flow_ids:
+            try:
+                relative = Path(*flow_id.split(".")[1:])
+                path = root / "scenarios" / relative.parent / (relative.name + ".flow.yaml")
+                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                inputs = raw.get("inputs", {}) if isinstance(raw, dict) else {}
+                if not isinstance(inputs, dict):
+                    inputs = {}
+                wrapper_id = "validator_" + uuid4().hex
+                wrapper = root / "scenarios" / f"{wrapper_id}.case.yaml"
+                wrapper.write_text(
+                    yaml.safe_dump(
+                        {
+                            "schema_version": "0.3",
+                            "id": f"case.{wrapper_id}",
+                            "steps": [
+                                {
+                                    "step_id": "validate",
+                                    "type": "flow",
+                                    "flow_id": flow_id,
+                                    "params": {key: None for key in inputs},
+                                }
+                            ],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                try:
+                    definition = describe(f"case.{wrapper_id}", root)
+                    if definition is None:
+                        raise ValueError("Engine 未提供 schema 0.3 描述")
+                    _check_description(definition, Registry(root))
+                finally:
+                    wrapper.unlink()
+                _ok(f"flow {flow_id} 定义与递归引用通过（仅静态包装）")
+            except Exception as exc:  # noqa: BLE001
+                message = _safe_error(f"加载 flow {flow_id}", exc)
+                errors.append(message)
+                _fail(message)
+    return errors
+
+
+def validate_candidate(name: str) -> list[str]:
+    """Stage only business contracts, never environment or credential files."""
+    if name not in {"go2-pending", "scenario-parameters"}:
+        raise ValueError("未知候选")
+    source = REPO_ROOT / "examples" / name
+    if not _discover_case_ids(source):
+        raise ValueError("候选缺少 case 入口")
+    with tempfile.TemporaryDirectory(prefix="testplat-candidate-validate-") as directory:
+        root = Path(directory)
+        shutil.copytree(source / "scenarios", root / "scenarios")
+        if name == "go2-pending":
+            suffixes = (
+                "order/search_product",
+                "area/user_area_place",
+                "order/intellect_express_items",
+                "order/service_fee",
+                "order/freight",
+                "order/go2/create_items",
+                "order/go2/settle",
+            )
+            for suffix in suffixes:
+                relative = Path("api/gsb/b2") / (suffix + ".yaml")
+                destination = root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(REPO_ROOT / "projects/gsb" / relative, destination)
+        elif (source / "api").is_dir():
+            shutil.copytree(source / "api", root / "api")
+        return validate_scenarios(root)
 
 
 def _list_envs(config_root: Path) -> list[str]:
@@ -308,9 +443,7 @@ def _validate_env_auth(key: str, config_root: Path, env: str, auth_path: Path) -
         return errors
     banned = sorted(set(_TESTPLAT_SECRET_RE.findall(raw_text)))
     if banned:
-        errors.append(
-            f"auth/{env}.yaml 仍引用 {', '.join(banned)}；平台主路径不再使用这些环境变量"
-        )
+        errors.append(f"auth/{env}.yaml 仍引用 {', '.join(banned)}；平台主路径不再使用这些环境变量")
         _fail(f"{key} auth {env}: 仍引用 {', '.join(banned)}")
         return errors
     try:
@@ -403,44 +536,20 @@ def validate_project(key: str, meta: dict) -> list[str]:
 
     registry = Registry(assets_root)
     api_ids = _discover_api_ids(assets_root)
-    case_ids = _discover_case_ids(assets_root)
-    loaded_apis: set[str] = set()
-
     if not api_ids:
         errors.append(f"项目 {key} 无 api 资产")
     for api_id in api_ids:
         try:
             api = registry.load_api(api_id)
-            loaded_apis.add(api.id)
             _ok(f"{key} api {api.id} ({api.method} {api.url})")
-        except Exception as exc:  # noqa: BLE001 — 汇总全部加载错误
-            errors.append(f"加载 api {api_id}: {type(exc).__name__}: {exc}")
-            _fail(f"{key} api {api_id}: {exc}")
-
-    if not case_ids:
-        _ok(f"{key} 暂无场景（允许仅接口的工作区）")
-    for case_id in case_ids:
-        try:
-            case = registry.load_case(case_id)
-            _ok(f"{key} case {case.id} ({len(case.steps)} steps)")
-            for step in case.steps:
-                if step.type != "api":
-                    errors.append(f"case {case_id} step {step.step_id} 不支持的 type={step.type}")
-                    _fail(f"{key} case {case_id} step {step.step_id}: type={step.type}")
-                    continue
-                if step.api_id not in loaded_apis:
-                    try:
-                        registry.load_api(step.api_id)
-                        loaded_apis.add(step.api_id)
-                    except Exception as exc:  # noqa: BLE001
-                        msg = f"case {case_id} 引用缺失 api {step.api_id}: {exc}"
-                        errors.append(msg)
-                        _fail(msg)
-                        continue
-                _ok(f"  {case_id} step {step.step_id} → {step.api_id}")
         except Exception as exc:  # noqa: BLE001
-            errors.append(f"加载 case {case_id}: {type(exc).__name__}: {exc}")
-            _fail(f"{key} case {case_id}: {exc}")
+            message = _safe_error(f"加载 api {api_id}", exc)
+            errors.append(message)
+            _fail(message)
+
+    if not _discover_case_ids(assets_root) and not _discover_flow_ids(assets_root):
+        _ok(f"{key} 暂无场景（允许仅接口的工作区）")
+    errors.extend(validate_scenarios(assets_root))
 
     errors.extend(_validate_profiles(key, config_root))
 
@@ -476,6 +585,9 @@ def validate_project(key: str, meta: dict) -> list[str]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="零请求资产静态验证")
+    parser.add_argument("--candidate", choices=("go2-pending", "scenario-parameters"))
+    args = parser.parse_args()
     print(f"REPO_ROOT={REPO_ROOT}")
     try:
         import testplat_engine
@@ -490,6 +602,15 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    if args.candidate:
+        try:
+            errors = validate_candidate(args.candidate)
+        except Exception as exc:  # noqa: BLE001
+            _fail(_safe_error("候选检查失败", exc))
+            return 1
+        print(f"候选 {args.candidate}: {'FAILED' if errors else 'ALL PASSED'}（静态；不启用资产）")
+        return 1 if errors else 0
 
     try:
         manifest = _load_manifest()

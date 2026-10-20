@@ -1,0 +1,21 @@
+id: api.gsb.b2.order.e3e3.coupons_items
+projects: [e3e3]
+name: 查询 e3e3 整单可用优惠券
+desc: e3e3 按全部已解析商品的价格、商品 ID 和数量一次查询整单可用优惠券；selectedCouponIds 固定为空以获取后端选择结果，成功响应中的 valueAmount 和有序 couponsShares 供后续校验及建单使用。
+host: gsb
+method: POST
+url: /api/b2/orders/coupons
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    items:
+      type: array
+      required: true
+      description: 按订单项顺序生成的优惠券商品列表
+  body:
+    items: "${items!}"
+    selectedCouponIds: []

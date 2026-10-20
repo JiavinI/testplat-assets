@@ -1,0 +1,20 @@
+# 历史 ID 兼容入口；新增调用使用 b2 下的规范 ID。
+id: api.gsb.order.search_product
+name: 搜索商品
+desc: B2 买家按关键字搜索可下单商品，用于后续按颜色/尺码选择 SKU。
+host: gsb
+method: GET
+url: /api/b2/orders/search/product
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: query
+  inputs:
+    product_keyword:
+      type: string
+      required: true
+      description: 搜索关键字
+  body:
+    keywords: "${product_keyword!}"

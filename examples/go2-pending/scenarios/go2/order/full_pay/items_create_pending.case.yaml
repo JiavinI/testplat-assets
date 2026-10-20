@@ -1,0 +1,43 @@
+schema_version: '0.3'
+id: case.go2.order.full_pay.items_create_pending
+name: GO2 两供应商全款待支付建单（本地候选）
+params:
+  common:
+    order:
+      receiver_text: 虚构测试收件信息，仅用于本机假目标
+      receiver_suffix: ''
+      express_code: MOCK_EXPRESS
+      service_fee_type: PLATFORM_DELIVER_FEE
+      channel: PC
+      send_type: WHOLE
+      source_channel: TAOBAO
+      shop_source_type: TAOBAO
+      create_from: FROM_MANUAL
+      goods_pay_later_flag: '0'
+      remark: 本机假服务待支付场景
+  private:
+    items:
+    - product_number: MOCK-A
+      sku_color: 红
+      sku_size: M
+      quantity: 2
+    - product_number: MOCK-B
+      sku_color: 蓝
+      sku_size: L
+      quantity: 3
+steps:
+- step_id: pending
+  type: flow
+  flow_id: flow.go2.order.full_pay.create_items_pending
+  params:
+    items: ${params.private.items}
+    options: ${params.common.order}
+  output: pending
+- step_id: order_number_present
+  type: assert
+  operation: non_empty
+  actual: ${pending.order.order_no}
+- step_id: authoritative_amount_present
+  type: assert
+  operation: non_empty
+  actual: ${pending.web_order_amount}

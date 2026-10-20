@@ -1,0 +1,19 @@
+id: api.gsb.b2.fund.transfer.settle
+name: 预结算资金划拨
+desc: GSB B2 买家按已选资金划拨单 ID 列表查询本次待支付总额；成功响应的 $.data.totalAmount 是后续补款支付页面的权威金额，本接口只预结算不执行扣款。
+host: gsb
+method: POST
+url: /api/fund/transfer/settle
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    ids:
+      type: array
+      required: true
+      description: 已筛选的资金划拨单 ID 列表
+  body:
+    ids: "${ids!}"

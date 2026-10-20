@@ -2,7 +2,7 @@ schema_version: '1'
 projects:
   gsb:
     name: GO2 的 GSB
-    assets: projects/gsb
+    assets: projects/gsb_go2
     config: projects/gsb/config
     default_env: test
     workspace:
