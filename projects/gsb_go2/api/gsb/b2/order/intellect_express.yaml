@@ -1,0 +1,48 @@
+id: api.gsb.b2.order.intellect_express
+name: 智能快递
+desc: B2 买家根据商品、SKU、数量与收件地区查询可用快递方案。
+host: gsb
+method: POST
+url: /api/b2/orders/intellect/express
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    product:
+      type: object
+      required: false
+      description: 商品语义对象
+    receiver:
+      type: object
+      required: false
+      description: 收件人语义对象
+    sku_color:
+      type: string
+      required: true
+      description: 商品颜色
+    sku_size:
+      type: string
+      required: true
+      description: 商品尺码
+    quantity:
+      type: number
+      required: true
+      description: 下单数量
+    source_channel:
+      type: string
+      required: false
+      description: 来源渠道
+      default: TAOBAO
+  body:
+    sourceChannel: "${source_channel|TAOBAO}"
+    provinceId: "${receiver.province_id}"
+    cityId: "${receiver.city_id}"
+    districtId: "${receiver.county_id}"
+    productInfos:
+      - productId: "${product.id}"
+        color: "${sku_color!}"
+        size: "${sku_size!}"
+        quantity: "${quantity!}"

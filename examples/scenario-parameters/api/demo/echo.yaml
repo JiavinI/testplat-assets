@@ -1,0 +1,10 @@
+id: api.demo.echo
+name: 假服务回显
+host: scenario_fake
+method: POST
+url: /echo
+request:
+  body:
+    value: ${value}
+success:
+  status_code: 200

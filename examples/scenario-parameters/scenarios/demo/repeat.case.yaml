@@ -1,0 +1,35 @@
+schema_version: '0.3'
+id: case.demo.repeat
+name: 统一参数与两次公共流程调用
+params:
+  common:
+    enabled: true
+  private:
+    first:
+      quantity: 1
+    second:
+      quantity: 2
+steps:
+- step_id: first
+  type: flow
+  flow_id: flow.demo.echo
+  params:
+    value:
+      enabled: ${params.common.enabled}
+      item: ${params.private.first}
+  output: first
+- step_id: second
+  type: flow
+  flow_id: flow.demo.echo
+  params:
+    value:
+      enabled: ${params.common.enabled}
+      item: ${params.private.second}
+  output: second
+- step_id: consume
+  type: api
+  api_id: api.demo.echo
+  params:
+    value:
+      first: ${first.value}
+      second: ${second.value}

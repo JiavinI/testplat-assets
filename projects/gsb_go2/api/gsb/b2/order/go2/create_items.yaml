@@ -1,0 +1,100 @@
+id: api.gsb.b2.order.go2.create_items
+projects: [go2]
+name: 创建 GO2 多商品待支付订单
+desc: B2 买家按有序 order_items 创建 GO2 多商品待支付订单，支持全款和货款后付标记；每个订单项保留自己的商品、SKU、供应商和数量，成功响应只提供订单号，后续应调用订单预结算接口取得权威应付金额。
+host: gsb
+method: POST
+url: /api/b2/orders/create
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    order_items:
+      type: array
+      required: true
+      description: 已按输入顺序精确解析的 GO2 商品订单项列表
+    receiver:
+      type: object
+      required: false
+      description: 收件人语义对象
+    express:
+      type: object
+      required: false
+      description: 已选快递方案语义对象，包含完整 expressList
+    freight_fee:
+      type: string
+      required: true
+      description: 整单运费
+    web_order_amount:
+      type: string
+      required: true
+      description: 建单时提交的应付金额
+    channel:
+      type: string
+      required: false
+      description: 下单渠道
+      default: PC
+    send_type:
+      type: string
+      required: false
+      description: 发货类型
+      default: WHOLE
+    source_channel:
+      type: string
+      required: false
+      description: 来源渠道
+      default: TAOBAO
+    shop_source_type:
+      type: string
+      required: false
+      description: 店铺来源类型
+      default: TAOBAO
+    create_from:
+      type: string
+      required: false
+      description: 创建来源
+      default: FROM_MANUAL
+    goods_pay_later_flag:
+      type: string
+      required: false
+      description: 货款后付标记
+      default: '0'
+    remark:
+      type: string
+      required: false
+      description: 订单备注
+      default: GO2多商品待支付下单-自动化
+  body:
+    orderCreateParameters:
+      - channel: "${channel|PC}"
+        sendType: "${send_type|WHOLE}"
+        orderItems: "${order_items!}"
+        isOutSupplier: false
+        orderGifts: []
+        receiverPhone: "${receiver.mobile}"
+        receiverName: "${receiver.name}"
+        receiverAddress: "${receiver.address}"
+        receiverProvince: "${receiver.province}"
+        receiverCity: "${receiver.city}"
+        receiverDistrict: "${receiver.county}"
+        provinceId: "${receiver.province_id}"
+        cityId: "${receiver.city_id}"
+        districtId: "${receiver.county_id}"
+        remark: "${remark|GO2多商品待支付下单-自动化}"
+        sourceChannel: "${source_channel|TAOBAO}"
+        defaultExpressId: "${express.default_id}"
+        intellectExpressId: "${express.intellect_express_id}"
+        strategyId: "${express.strategy_id}"
+        costFirstTag: "${express.cost_first_tag}"
+        expressList: "${express.list}"
+        expressId: "${express.id}"
+        expressName: "${express.name}"
+        firstScaleAmount: "${express.first_scale_amount}"
+        freightFee: "${freight_fee!}"
+        shopSourceType: "${shop_source_type|TAOBAO}"
+        webOrderAmount: "${web_order_amount!}"
+        createFrom: "${create_from|FROM_MANUAL}"
+        goodsPayLaterFlag: "${goods_pay_later_flag|0}"

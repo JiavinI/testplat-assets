@@ -1,0 +1,163 @@
+schema_version: '0.3'
+id: flow.go2.order.full_pay.prepare_items
+name: 准备有序多商品订单
+inputs:
+  items:
+    type: array
+  options:
+    type: object
+outputs:
+  order_items: ${order_items}
+  total_quantity: ${total_quantity}
+  goods_amount: ${goods_amount}
+  receiver: &id001
+    province: ${address.body.data.province}
+    province_id: ${address.body.data.provinceId}
+    city: ${address.body.data.city}
+    city_id: ${address.body.data.cityId}
+    county: ${address.body.data.county}
+    county_id: ${address.body.data.countyId}
+    name: ${address.body.data.name}
+    mobile: ${address.body.data.mobile}
+    address: ${address.body.data.address}
+  freight_fee: ${freight_amount}
+  service_fee_price: ${service_fee.price}
+  express:
+    list: ${express_options.body.data}
+    default_id: ${default_express.id}
+    id: ${express.id}
+    name: ${express.name}
+    first_scale_amount: ${express.firstScaleAmount}
+    intellect_express_id: ${express.intellectExpressId}
+    strategy_id: ${express.strategyId}
+    cost_first_tag: ${express.costFirstTag}
+steps:
+- step_id: total_quantity
+  type: transform
+  operation: positive_integer_sum
+  source: ${inputs.items}
+  path:
+  - quantity
+  output: total_quantity
+- step_id: resolve_items
+  type: map
+  flow_id: flow.go2.order.full_pay.resolve_item
+  source: ${inputs.items}
+  params:
+    item: ${item}
+  output: resolved
+- step_id: order_items
+  type: transform
+  operation: project
+  source: ${resolved}
+  path:
+  - order_item
+  output: order_items
+- step_id: product_infos
+  type: transform
+  operation: project
+  source: ${resolved}
+  path:
+  - product_info
+  output: product_infos
+- step_id: goods_amount
+  type: decimal
+  operation: sum
+  operands: ${resolved}
+  scale: 2
+  rounding: HALF_UP
+  output: goods_amount
+  path:
+  - line_amount
+- step_id: address
+  type: api
+  name: 识别收件信息
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.area.user_area_place
+  params:
+    receiver_text: ${inputs.options.receiver_text}
+    receiver_suffix: ${inputs.options.receiver_suffix}
+  output: address
+- step_id: receiver_name_present
+  type: assert
+  operation: non_empty
+  actual: ${address.body.data.name}
+- step_id: receiver_mobile_present
+  type: assert
+  operation: non_empty
+  actual: ${address.body.data.mobile}
+- step_id: express_options
+  type: api
+  name: 按全部商品查询整单快递
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.order.intellect_express_items
+  params:
+    product_infos: ${product_infos}
+    receiver: *id001
+    source_channel: ${inputs.options.source_channel}
+  output: express_options
+- step_id: express
+  type: extract
+  source: ${express_options.body}
+  selector:
+    path:
+    - data
+    where:
+    - path:
+      - code
+      equals: ${inputs.options.express_code}
+  cardinality: one
+  value_type: object
+  output: express
+- step_id: default_express
+  type: extract
+  source: ${express_options.body}
+  selector:
+    path:
+    - data
+    where:
+    - path:
+      - defaultState
+      equals: 1
+  cardinality: one
+  value_type: object
+  output: default_express
+- step_id: fees
+  type: api
+  name: 查询整单服务费规则
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.order.service_fee
+  params: {}
+  output: fees
+- step_id: service_fee
+  type: extract
+  source: ${fees.body}
+  selector:
+    path:
+    - data
+    where:
+    - path:
+      - type
+      equals: ${inputs.options.service_fee_type}
+  cardinality: one
+  value_type: object
+  output: service_fee
+- step_id: freight
+  type: api
+  name: 按整单数量计算一次运费
+  identity: gsb.b2.primary
+  api_id: api.gsb.b2.order.freight
+  params:
+    express_id: ${express.id}
+    quantity: ${total_quantity}
+    receiver_province: ${address.body.data.province}
+  output: freight
+- step_id: freight_amount
+  type: decimal
+  operation: add
+  operands:
+  - ${freight.body.data.freightFee}
+  - 0
+  scale: 2
+  rounding: HALF_UP
+  output: freight_amount

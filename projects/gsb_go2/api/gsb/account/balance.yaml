@@ -1,0 +1,14 @@
+# 历史 ID 兼容入口；新增调用使用 b2 下的规范 ID。
+id: api.gsb.account.balance
+name: 查询账户余额
+desc: GSB B2 公共账户余额查询接口，不带项目段且无请求体；成功响应的 $.data.balance 表示当前账号可用余额，供待支付订单在调用余额支付前完成金额校验；本契约只负责查询，不执行扣款。
+host: gsb
+method: POST
+url: /api/account/balance
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs: {}

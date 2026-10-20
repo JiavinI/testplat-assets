@@ -1,0 +1,127 @@
+id: api.gsb.b2.order.go2.create
+projects: [go2]
+name: 创建订单
+desc: B2 买家创建 GO2 待支付订单，支持全款与货款后付链路；由调用方显式传入本次应付金额、支付模式标记和可审计备注。
+host: gsb
+method: POST
+url: /api/b2/orders/create
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    product:
+      type: object
+      required: false
+      description: 商品语义对象
+    receiver:
+      type: object
+      required: false
+      description: 收件人语义对象
+    express:
+      type: object
+      required: false
+      description: 快递语义对象
+    quantity:
+      type: number
+      required: true
+      description: 下单数量
+    freight_fee:
+      type: string
+      required: true
+      description: 运费
+    web_order_amount:
+      type: string
+      required: true
+      description: 应付金额
+    channel:
+      type: string
+      required: false
+      description: 下单渠道
+      default: PC
+    send_type:
+      type: string
+      required: false
+      description: 发货类型
+      default: WHOLE
+    source_channel:
+      type: string
+      required: false
+      description: 来源渠道
+      default: TAOBAO
+    shop_source_type:
+      type: string
+      required: false
+      description: 店铺来源类型
+      default: TAOBAO
+    create_from:
+      type: string
+      required: false
+      description: 创建来源
+      default: FROM_MANUAL
+    goods_pay_later_flag:
+      type: string
+      required: false
+      description: 货款后付标记
+      default: '0'
+    remark:
+      type: string
+      required: false
+      description: 订单备注
+      default: GO2全款待支付下单-自动化
+  body:
+    orderCreateParameters:
+      - channel: "${channel|PC}"
+        sendType: "${send_type|WHOLE}"
+        orderItems:
+          - color: "${product.sku_color}"
+            number: "${product.number}"
+            price: "${product.sku_price}"
+            productId: "${product.id}"
+            productType: "${product.type}"
+            quantity: "${quantity!}"
+            size: "${product.sku_size}"
+            supplierAddress: "${product.supplier_address}"
+            supplierId: "${product.supplier_id}"
+            supplierName: "${product.supplier_name}"
+            itemType: GOODS
+            supplierPhone: "${product.supplier_phone}"
+            isOutSupplier: false
+            giftId: null
+            productionState: "${product.production_state}"
+            customCertificateName: ""
+            customCertificateId: ""
+            categoryId: "${product.category_id}"
+            productNumber: "${product.number}"
+            imageUrl: "${product.image_url}"
+            colors: "${product.sku_color}"
+            sizes: "${product.sku_size}"
+            matchedSkuTag: MATCHED_SKU
+        isOutSupplier: false
+        orderGifts: []
+        receiverName: "${receiver.name}"
+        receiverPhone: "${receiver.mobile}"
+        receiverProvince: "${receiver.province}"
+        receiverCity: "${receiver.city}"
+        receiverDistrict: "${receiver.county}"
+        provinceId: "${receiver.province_id}"
+        cityId: "${receiver.city_id}"
+        districtId: "${receiver.county_id}"
+        receiverAddress: "${receiver.address}"
+        remark: "${remark|GO2全款待支付下单-自动化}"
+        sourceChannel: "${source_channel|TAOBAO}"
+        defaultExpressId: "${express.default_id}"
+        intellectExpressId: "${express.intellect_express_id}"
+        strategyId: "${express.strategy_id}"
+        costFirstTag: "${express.cost_first_tag}"
+        expressId: "${express.id}"
+        expressList: "${express.list}"
+        expressName: "${express.name}"
+        firstScaleAmount: "${express.first_scale_amount}"
+        freightFee: "${freight_fee!}"
+        shopSourceType: "${shop_source_type|TAOBAO}"
+        webOrderAmount: "${web_order_amount!}"
+        createFrom: "${create_from|FROM_MANUAL}"
+        goodsPayLaterFlag: "${goods_pay_later_flag|0}"

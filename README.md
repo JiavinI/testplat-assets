@@ -2,13 +2,13 @@
 
 Phase 4.1a 用例与登录流程仓库。平台在 Web 维护环境、地址和测试账号凭据；本仓库提供接口、case 和登录流程，不入 Control / Engine。
 
-本次 GSB 迁移使用本地候选 Engine 0.5.2 和配套 Control；用 Control `scripts/dev.sh` 显式加载相邻 Engine。Control 远程仍锁定 0.5.1，尚未推送本候选或更新锁定。秘密不进仓库。登录模板只写 `${secret:字段名}`，字段值由 Web 账号凭据提供，不再由服务器环境变量提供。
+本交付分支使用 Engine 0.6.0 和精确锁定其提交的配套 Control，支持 schema 0.3；正常安装不需要相邻 Engine 源码。远程主线合并和部署另行安排。秘密不进仓库。登录模板只写 `${secret:字段名}`，字段值由 Web 账号凭据提供，不再由服务器环境变量提供。
 
 ## 平台与项目入口（2026-10-18）
 
 清单 `workspace` 声明平台、业务项目及配置归属，需配套本轮 Control。6 个平台、10 个运行工作区：GO2 网站、E3E3 网站；GSB 下的 GO2 / E3E3；代发后台、拿货端、GO2 管理后台分别有 GO2 / E3E3 上下文。
 
-- 旧 `gsb` ID 与资产保留，明确属于 GO2；`gsb_e3e3` 复用 GSB 定义、使用独立 E3E3 登录配置，source 为 e3e3。
+- 旧 `gsb` ID 保留，GO2 使用 `projects/gsb_go2` 资产，配置仍为 `projects/gsb/config`；`gsb_e3e3` 沿用 `projects/gsb` 和独立 E3E3 登录配置，source 为 e3e3。
 - 网站和所属 GSB 共用数据库环境／账号，不把网站 Cookie 与 API token 混用。初始网站资产仅检查匿名 SSO 入口，不提供 Page 执行或网站浏览器登录。
 - 后台的两个业务项目共用该后台配置，与网站账号分开；拿货端登录 source 使用 `${workspace:project}`，由 Control 从明确的绑定解析。管理后台 Cookie 登录不凭空注入业务项目参数。
 - `configuration` 指向同仓直接配置归属，双方 config 路径必须相同；旧清单可不填 workspace。
@@ -26,6 +26,7 @@ testplat-assets/
 │   └── <project>/
 │       ├── api/**.yaml           # API；id 与路径一致，如 api.a.b.c → api/a/b/c.yaml
 │       ├── scenarios/**.case.yaml # Case；case.a.b → scenarios/a/b.case.yaml
+│       ├── scenarios/**.flow.yaml # 新版公共流程，仅供 case/flow 调用
 │       └── config/
 │           ├── envs/<env>.yaml   # 环境示例模板（运行时以 Web 为准，同步不覆盖）
 │           └── auth/
@@ -59,6 +60,24 @@ testplat-assets/
 - 顺序 `steps`，每步 `type: api` + `api_id`；可用顶层 / 步骤 `params`，并用步骤 identity 选择测试账号。
 - 步骤参数引用 case 参数：`${params.xxx}`。
 
+### 场景 0.3（交付分支）
+
+新版 case 的集中 params 与 flow 的显式 inputs/outputs 由 Engine 公开 `describe_case` 校验。支持 api、flow、map、extract、decimal、assert、transform；语义见相邻 Engine 的 `docs/scenario-schema-0.3.md`。旧 Case 0.2 继续走严格旧加载器。
+
+`python scripts/validate.py` 默认只检查正式清单；会递归核对新版 API/flow 引用，并独立验证未被引用的 flow。flow 在临时目录包装为仅供描述的 case，不成为运行入口，不修改源文件。缺少新版公开描述能力的 Engine 会拒绝新版资产，不静默跳过。
+
+在配套 Control 目录使用正式精确锁验证：
+
+```sh
+uv run --isolated --locked --extra dev python ../testplat-assets/scripts/validate.py --candidate go2-pending
+uv run --isolated --locked --extra dev python ../testplat-assets/scripts/validate.py --candidate scenario-parameters
+uv run --isolated --locked --extra dev pytest -q ../testplat-assets/tests
+```
+
+默认清单已为 GO2 启用多商品待支付场景，E3E3 不显示此入口。`projects/gsb_go2` 保留旧 smoke 和所有原 GSB API 的逐字副本；API 变更须同步两个目录，测试检查路径集合和内容一致。独立目录防止现有 case 扫描将 GO2 入口暴露给 E3E3，不新增项目过滤语义或配置副本。
+
+候选检查只复制 scenarios 和所需 API 到临时目录；GO2 复用当前七个 API，不复制环境、登录模板或账号数据，不加入生产清单。通过仅表示静态定义、契约形状与引用有效；不验证动态响应、金额业务结果、环境 host、账号可用性或 WAIT_PAY 状态。运行时预检和真实业务验收分别完成。验证失败只输出异常类型和可用的 YAML 行列，避免打印资产片段。
+
 ### 环境模板（`config/envs/<env>.yaml`）
 
 - 这些文件是示例 / 初始化模板，**不是**运行时来源。
@@ -91,7 +110,7 @@ testplat-assets/
 |---|---|
 | `request.params`（query） | 发送侧读的是 `request.body` |
 | 数据驱动 case / suites / UI 步骤 | 本批不做 |
-| 跨步骤取响应字段做下一步入参 | 能力未在本批资产中使用；需要时先人工传参 |
+| schema 0.3 在正式旧 Engine 上运行 | 使用本交付分支配套的 Engine 0.6.0 精确锁；跨步骤引用由公开描述与运行时预检校验 |
 | 插件登录（如 `vcode_redis`） | 需安装插件并在 `login_plugins` 白名单声明 |
 | api / case 内写秘密字面量或 `${secret:}` | 加载期直接拒绝 |
 | 步骤字段 `account` | 使用 identity；account 仍为未知字段 |

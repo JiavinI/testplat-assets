@@ -1,0 +1,138 @@
+id: api.gsb.b2.order.e3e3.create_items
+projects: [e3e3]
+name: 创建 e3e3 items 普通待支付订单
+desc: e3e3 普通全款建单接口，接收有序 order_items、整单数量、收件人、快递、服务费、运费、最晚发货日期和应付金额；所有商品保留各自供应商，成功响应从 $.data[0].orderNo 提取 WAIT_PAY 订单号。
+host: gsb
+method: POST
+url: /api/b2/orders/create
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    order_items:
+      type: array
+      required: true
+      description: 已解析 e3e3 下单项列表
+    receiver:
+      type: object
+      required: false
+      description: 收件人语义对象
+    express:
+      type: object
+      required: true
+      description: 快递语义对象
+    service_fee:
+      type: object
+      required: false
+      description: PLATFORM_DELIVER_FEE 完整对象
+    service_fee_total_origin:
+      type: string
+      required: true
+      description: 服务费原价总额
+    service_fee_total:
+      type: string
+      required: true
+      description: 服务费实价总额
+    total_quantity:
+      type: number
+      required: true
+      description: 整单商品数量
+    freight_fee:
+      type: string
+      required: true
+      description: 运费
+    web_order_amount:
+      type: string
+      required: true
+      description: 普通应付金额
+    supplier_id:
+      type: string
+      required: true
+      description: 根级兼容供应商 ID
+    send_type:
+      type: string
+      required: true
+      description: 发货方式
+    send_time:
+      type: string
+      required: true
+      description: 最晚发货日期
+    channel:
+      type: string
+      required: false
+      description: 下单渠道
+      default: PC
+    source_channel:
+      type: string
+      required: false
+      description: 来源渠道
+      default: TAOBAO
+    shop_source_type:
+      type: string
+      required: false
+      description: 店铺来源类型
+      default: TAOBAO
+    create_from:
+      type: string
+      required: false
+      description: 创建来源
+      default: FROM_MANUAL
+  body:
+    orderCreateParameters:
+      - channel: "${channel|PC}"
+        sendType: "${send_type!}"
+        shipperType: PLATFORM
+        orderItems: "${order_items!}"
+        # 后端 wire contract 历史拼写就是 Platfrom，不能改成 Platform。
+        isDisabledPlatfrom: false
+        isDisabledSupplier: true
+        _lastServiceFeeParams:
+          quantity: "${total_quantity!}"
+          remoteQuantity: 0
+        serviceFeeDetailData:
+          id: "${service_fee.id}"
+          name: "${service_fee.name}"
+          type: "${service_fee.type}"
+          originPrice: "${service_fee.originPrice}"
+          price: "${service_fee.price}"
+          totalOriginPrice: "${service_fee_total_origin!}"
+          totalPrice: "${service_fee_total!}"
+          maxValueAmount: "${service_fee.maxValueAmount}"
+          vipDiscount: "${service_fee.vipDiscount}"
+          proxyDeliverBillingType: "${service_fee.proxyDeliverBillingType}"
+          proxyDeliverFee: "${service_fee.proxyDeliverFee}"
+          remoteDeliverFee: "${service_fee.remoteDeliverFee}"
+          remoteTotalOriginPrice: "${service_fee.remoteTotalOriginPrice}"
+          totalNormalOriginPrice: "${service_fee.totalNormalOriginPrice}"
+          totalNormalPrice: "${service_fee.totalNormalPrice}"
+          singleRemoteDeliverFee: "${service_fee.singleRemoteDeliverFee}"
+        # 根字段是否可省略尚待接口验证；当前只取第一项，orderItems 不按供应商分组。
+        supplierId: "${supplier_id!}"
+        isOutSupplier: false
+        orderGifts: []
+        expressId: "${express.id!}"
+        firstScaleAmount: "${express.first_scale_amount}"
+        sendTime: "${send_time!}"
+        receiverPhone: "${receiver.mobile}"
+        receiverName: "${receiver.name}"
+        receiverAddress: "${receiver.address}"
+        receiverProvince: "${receiver.province}"
+        receiverCity: "${receiver.city}"
+        receiverDistrict: "${receiver.county}"
+        provinceId: "${receiver.province_id}"
+        cityId: "${receiver.city_id}"
+        districtId: "${receiver.county_id}"
+        remark: "e3e3任意items全款下单-自动化-${now()}"
+        sourceChannel: "${source_channel|TAOBAO}"
+        defaultExpressId: "${express.default_id}"
+        intellectExpressId: "${express.intellect_express_id}"
+        strategyId: "${express.strategy_id}"
+        costFirstTag: "${express.cost_first_tag}"
+        expressName: "${express.name}"
+        freightFee: "${freight_fee!}"
+        shopSourceType: "${shop_source_type|TAOBAO}"
+        webOrderAmount: "${web_order_amount!}"
+        createFrom: "${create_from|FROM_MANUAL}"

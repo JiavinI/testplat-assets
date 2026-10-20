@@ -1,0 +1,24 @@
+id: api.gsb.b2.area.user_area_place
+name: 地址识别
+desc: B2 买家根据地址文本识别收件人行政区划与收货信息。
+host: gsb
+method: POST
+url: /api/b2/area/userAreaPlace
+success:
+  path: $.errorCode
+  value: "0"
+request:
+  template: structured
+  type: json
+  inputs:
+    receiver_text:
+      type: string
+      required: true
+      description: 地址原文
+    receiver_suffix:
+      type: string
+      required: false
+      description: 地址随机门牌号后缀
+      default: ''
+  body:
+    text: "${receiver_text!}${receiver_suffix|}"

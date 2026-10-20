@@ -1,0 +1,15 @@
+schema_version: '0.3'
+id: flow.demo.echo
+name: 回显并导出
+inputs:
+  value:
+    type: object
+outputs:
+  value: ${echo.body.value}
+steps:
+- step_id: echo
+  type: api
+  api_id: api.demo.echo
+  params:
+    value: ${inputs.value}
+  output: echo
